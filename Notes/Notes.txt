@@ -1,0 +1,24 @@
+Tutorial reference: https://www.youtube.com/watch?v=I6ypD7qv3Z8&ab_channel=BenAwad
+
+A note on extensions:
+To see extensions which are currently installed, you can enter into the searchbar command @installed.
+
+VS Code extensions:
+- Bracket Pair Colorizer 2 (0.2.0)
+- Docker (1.6.0)
+- GraphQL for VSCode (1.15.3)
+- Prettier - Code formatter (5.7.1)
+- Vim (1.17.1) - Disabled for now
+
+Backend init steps:
+1. New package.json to backend root
+2. devDependencies:
+    - typescript
+    - @types/node
+    - ts-node
+3. tsconfig.json to backend root
+    $ npx tsconfig.json
+4. New scripts to package.json
+"scripts":[
+    "start": "ts-node src/index.ts"
+]    
