@@ -1,5 +1,8 @@
 Tutorial reference: https://www.youtube.com/watch?v=I6ypD7qv3Z8&ab_channel=BenAwad
 
+A note on text editors:
+I don't give a fuck who you think you are, use VS Code.
+
 A note on extensions:
 To see extensions which are currently installed, you can enter into the searchbar command @installed.
 
@@ -9,6 +12,10 @@ VS Code extensions:
 - GraphQL for VSCode (1.15.3)
 - Prettier - Code formatter (5.7.1)
 - Vim (1.17.1) - Disabled for now
+
+How to enable auto-formatting on save for VS Code. 
+You can achieve the same result by messing with your settings, which is fine, you can find the relevant config over on the Prettier - Code formatter docs, but you can also do the following, simply via the editor settings:
+Code > Preferences > Settings > User. Search for "format", and check "format on save"
 
 Backend init steps:
 1. New package.json to backend root
