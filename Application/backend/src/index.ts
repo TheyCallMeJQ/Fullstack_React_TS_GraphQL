@@ -9,10 +9,11 @@ const main = async () => {
   await orm.getMigrator().up();
 
   //Create a new Post (does not affect db)
-  const post = orm.em.create(Post, { title: "My first post" });
-  await orm.em.persistAndFlush(post);
-  console.log("--------------SQL 2-------------------");
-  await orm.em.nativeInsert(Post, { title: "My first title 2" });
+  // const post = orm.em.create(Post, { title: "My first post" });
+  // await orm.em.persistAndFlush(post);
+
+  const posts = await orm.em.find(Post, {});
+  console.log(posts);
 };
 
 main().catch((e) => {
