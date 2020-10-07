@@ -177,8 +177,91 @@ console.log('Hello world!');
             - type-graphql
         b. Add to devDependencies
             - @types/express
-                
+        c. Test express works properly with the following:
+            1. ensure src/index.ts matches:
+            import { MikroORM } from "@mikro-orm/core";
+            import express from "express";
 
+            import { __prod__ } from "./constants";
+            import microConfig from "./mikro-orm.config";
+
+            const main = async () => {
+                const orm = await MikroORM.init(microConfig);
+                await orm.getMigrator().up();
+
+                const app = express();
+                const PORT = 4000;
+
+                app.get("/", (req, res) => {
+                    res.send("Hello world from Express!");
+                });
+
+                app.listen(PORT, () => {
+                    console.log(`Server listening on port ${PORT}`);
+                });
+            };
+
+            main().catch((e) => {
+                console.log(e);
+            });
+
+            2. Navigate to http://localhost:4000, you should receive "Hello world from Express!"
+        d. Set up apollo-server-express
+            i. Create HelloResolver class
+            //src/resolvers/hello.ts  
+            import { Query, Resolver } from "type-graphql";
+
+            @Resolver()
+            export class HelloResolver {
+                @Query(() => String)
+                hello() {
+                    return "Hello world!";
+                }
+            }
+            ii. Implement hello resolver in apollo-server graphql schema
+            //src/index.ts
+            import { MikroORM } from "@mikro-orm/core";
+            import express from "express";
+            import { ApolloServer } from "apollo-server-express";
+            import { buildSchema } from "type-graphql";
+
+            import { __prod__ } from "./constants";
+            import microConfig from "./mikro-orm.config";
+
+            import { HelloResolver } from "./resolvers/hello";
+
+            const main = async () => {
+                const orm = await MikroORM.init(microConfig);
+                await orm.getMigrator().up();
+
+                const PORT = 4000;
+                const app = express();
+
+                const apolloServer = new ApolloServer({
+                    schema: await buildSchema({
+                    resolvers: [HelloResolver],
+                    validate: false,
+                    }),
+                });
+
+                apolloServer.applyMiddleware({ app });
+
+                app.listen(PORT, () => {
+                    console.log(`Server listening on port ${PORT}`);
+                });
+            };
+
+            main().catch((e) => {
+                console.log(e);
+            });
+            iii. Verify successful graphQL endpoint by navigating to http://localhost:4000 and trying out the `hello` query. You should see as output 'Hello world'
+            
+
+
+  
+    
+
+What does it do for us to implement our HelloResolver in our src/index.ts schema definition? What this does for us is it defines a graphQL endpoint for our queries.
 
 
 Before losing your mind on debugging:
