@@ -12,19 +12,37 @@ VS Code extensions:
 
 Backend init steps:
 1. New package.json to backend root
-2. devDependencies:
-    - typescript
-    - @types/node
-    - ts-node
+2. Install packages 
+    a. devDependencies:
+        "@types/node": "^14.11.5",
+        "concurrently": "^5.3.0", <-- Optional
+        "nodemon": "^2.0.4",
+        "typescript": "^4.0.3"
+    b. dependencies:
+        "@mikro-orm/cli": "^4.0.7",
+        "@mikro-orm/core": "^4.0.7",
+        "@mikro-orm/migrations": "^4.0.7",
+        "@mikro-orm/postgresql": "^4.0.7",
+        "pg": "^8.4.0"    
+
 3. tsconfig.json to backend root
     $ npx tsconfig.json
-4. New scripts to package.json (remove comments)
+4. New scripts to package.json (remove comments after copy-paste)
 "scripts":[
-    //Compile typescript file
-    "start": "ts-node src/index.ts",
-    //Run typescript with the -w watch flag, spit out dist folder
+    //Transpile ts to js, retranspile on file change
     "watch" : "tsc -w",
+    //Compile generated js
+    "start": "nodemon dist/index.js"
 ]    
+5. Initialize db
+    a. if needed, install postgresql 
+        $ brew install postgresql
+    b. (Optional) add db scripts to package.json, for instance:
+        "pg-start": "brew services start postgresql",
+        "pg-stop" : "brew services stop postgresql"
+    c. (After starting postgresql instance via 'pg-start' script defined above) create new db.
+        $ createdb [DB_NAME]
+
 
 A note on why not to use 'ts-node': 
 - it's slow
@@ -32,4 +50,5 @@ A note on why not to use 'ts-node':
 Our solution to ts-node?
 - A 'watch' script executing typescript with the watch flag, to monitor file changes to src/index.ts; spits out a dist build (JS) on file change.
 - A 'dev' script to execute 'nodemon' on our produced dist directory, coming from the watch script. To the difference of 'node', 'nodemon' will listen for changes made to our compiled dist file, resulting from our watch script.
-Note that the two points above must be two scripts running in tandem.
+Note that the two points above must be two scripts running in tandem. We can do this either in two separate terminal instances, or at once via 'concurrently' package.
+
