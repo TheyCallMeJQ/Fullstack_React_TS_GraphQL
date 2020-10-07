@@ -158,20 +158,26 @@ console.log('Hello world!');
         import microConfig from "./mikro-orm.config";
 
         const main = async () => {
-            const orm = await MikroORM.init(microConfig);
-            await orm.getMigrator().up();
+                const orm = await MikroORM.init(microConfig);
+                await orm.getMigrator().up();
 
-            //Create a new Post (does not affect db)
-            const post = orm.em.create(Post, { title: "My first post" });
-            await orm.em.persistAndFlush(post);
-            console.log("--------------SQL 2-------------------");
-            await orm.em.nativeInsert(Post, { title: "My first title 2" });
+                //Create a new Post (does not affect db)
+                const post = orm.em.create(Post, { title: "My first post" });
+                await orm.em.persistAndFlush(post);
             };
 
             main().catch((e) => {
             console.log(e);
         });
-
+    7. Initialize server
+        a. Add to dependencies:
+            - express
+            - apollo-server-express
+            - graphql
+            - type-graphql
+        b. Add to devDependencies
+            - @types/express
+                
 
 
 
