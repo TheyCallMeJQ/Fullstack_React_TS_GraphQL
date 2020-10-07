@@ -18,7 +18,18 @@ Backend init steps:
     - ts-node
 3. tsconfig.json to backend root
     $ npx tsconfig.json
-4. New scripts to package.json
+4. New scripts to package.json (remove comments)
 "scripts":[
-    "start": "ts-node src/index.ts"
+    //Compile typescript file
+    "start": "ts-node src/index.ts",
+    //Run typescript with the -w watch flag, spit out dist folder
+    "watch" : "tsc -w",
 ]    
+
+A note on why not to use 'ts-node': 
+- it's slow
+- when we get to production, we don't use ts-node; we compile to JS and execute that. We elect not to use ts-node to be closer to the production environment, in dev
+Our solution to ts-node?
+- A 'watch' script executing typescript with the watch flag, to monitor file changes to src/index.ts; spits out a dist build (JS) on file change.
+- A 'dev' script to execute 'nodemon' on our produced dist directory, coming from the watch script. To the difference of 'node', 'nodemon' will listen for changes made to our compiled dist file, resulting from our watch script.
+Note that the two points above must be two scripts running in tandem.
