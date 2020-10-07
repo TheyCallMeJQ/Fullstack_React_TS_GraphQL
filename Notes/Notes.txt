@@ -48,13 +48,22 @@ console.log('Hello world!');
     "start": "nodemon dist/index.js"
 ]    
 
-5. Initialize db
+6. Initialize db
     a. if needed, install postgresql 
         $ brew install postgresql
-    b. (Optional) add db scripts to package.json, for instance:
+    b. Ensure successful install via 
+        $ postgres -V
+    c. Ensure existence of postgres default account with the following:
+        1. $ psql postgres
+        2. postgres=# \du
+        3. (Optional) If now you DON'T see postgres account listed, exit and run the following:
+            a. $ createuser -s postgres
+                  
+    d. (Optional) add db scripts to package.json, for instance:
         "pg-start": "brew services start postgresql",
         "pg-stop" : "brew services stop postgresql"
-    c. (After starting postgresql instance via 'pg-start' script defined above) create new db.
+
+    e. (After starting postgresql instance via 'pg-start' script defined above) create new db.
         $ createdb [DB_NAME]
 
     d. Create a new entity, in accordance with mikro-orm docs: https://mikro-orm.io/docs/defining-entities/
@@ -63,47 +72,22 @@ console.log('Hello world!');
 
     @Entity()
     export class Post {
-    @PrimaryKey()
-    id!: number;
+        @PrimaryKey()
+        id!: number;
 
-    @Property()
-    createdAt = new Date();
+        @Property({ type: "date" })
+        createdAt = new Date();
 
-    @Property({ onUpdate: () => new Date() })
-    updatedAt = new Date();
+        @Property({ type: "date", onUpdate: () => new Date() })
+        updatedAt = new Date();
 
-    @Property()
-    title!: string;
+        @Property({ type: "text" })
+        title!: string;
     }
 
-    e. Have the following src/index.ts (it will result in an error, as right now we're trying to create entries somewhere that doesn't exist yet):
-    import { MikroORM } from "@mikro-orm/core";
-    import { __prod__ } from "./constants";
-    import { Post } from "./entities/Post";
 
-    const main = async () => {
-    console.log("Hello orld");
-    const orm = await MikroORM.init({
-        dbName: "lireddit",
-        entities: [Post],
-        type: "postgresql",
-        debug: !__prod__,
-    });
-
-    //Create a new Post (does not affect db)
-    const post = orm.em.create(Post, { title: "My first post" });
-    await orm.em.persistAndFlush(post);
-    console.log("--------------SQL 2-------------------");
-    await orm.em.persistAndFlush(post);
-    };
-
-    main().catch((e) => {
-    console.log(e);
-    });
-
-    f. Set up MikroORM CLI to allow for ops to db.
-        i. Navigate to https://mikro-orm.io/docs/installation#setting-up-the-commandline-tool
-        ii. Have the following general package.json:
+    e. Set up MikroORM CLI to allow for ops to db.
+        i. Add to package.json (Source: https://mikro-orm.io/docs/installation#setting-up-the-commandline-tool):
         {
             "name": "your-app",
             "dependencies": { ... },
@@ -115,9 +99,61 @@ console.log('Hello world!');
                 ]
             }
         }
-        iii. Create above specified 'src/mikro-orm.config.ts' with the following:
         
+        ii. Create 'src/mikro-orm.config.ts' with the following:
+        //Source: https://mikro-orm.io/docs/migrations/#configuration
+        import { MikroORM } from "@mikro-orm/core";
+        import { __prod__ } from "./constants";
+        import { Post } from "./entities/Post";
 
+        import path from "path";
+
+        export default {
+            migrations: {
+                path: path.join(__dirname, "./migrations"), // path to the folder with migrations
+                pattern: /^[\w-]+\d+\.[tj]s$/, // regex pattern for the migration files (.js or .ts)
+            },
+            dbName: "lireddit",
+            entities: [Post],
+            type: "postgresql",
+            debug: !__prod__,
+        } as Parameters<typeof MikroORM.init>[0];
+
+        iii. Have the following as src/index.ts
+        //src/index.ts
+        import { MikroORM } from "@mikro-orm/core";
+        import { __prod__ } from "./constants";
+        import { Post } from "./entities/Post";
+
+        import microConfig from "./mikro-orm.config";
+
+        const main = async () => {
+            const orm = await MikroORM.init(microConfig);
+
+            //Create a new Post (does not affect db)
+            const post = orm.em.create(Post, { title: "My first post" });
+            await orm.em.persistAndFlush(post);
+            console.log("--------------SQL 2-------------------");
+            await orm.em.persistAndFlush(post);
+        };
+
+        main().catch((e) => {
+            console.log(e);
+        });
+
+        
+        iv. Create MikroORM migration via CLI command 
+        (Source: https://mikro-orm.io/docs/migrations/#using-via-cli)
+            $ npx mikro-orm migration:create
+        If running the above gives you the "role postgres doesn't exist" error (which means there's no defined postgres user), then see 5.c.3, '(Optional) If now you DON'T see postgres account listed, exit and run the following'.
+
+
+
+Before losing your mind on debugging:
+Make sure your dist looks the way it should. It's possible that over the course of programming, it gets filled up with a lot of trash (or duplicates from slightly different files). The solution? Erase dist and re-run our `start` and `watch` script, to remake a fresh one.
+
+A note on the purpose of our mikro-orm.config.ts:
+We make this src/mikro-orm.config.ts in order to be able to access our custom data types from our MikroORM CLI.
 
 A note on why not to use 'ts-node': 
 - it's slow
@@ -128,3 +164,10 @@ Our solution to ts-node?
 Note that the two points above must be two scripts running in tandem. We can do this either in two separate terminal instances, or at once via 'concurrently' package.
 
 A note on the difference between orm.em.create, orm.em.persistAndFlush and orm.em.nativeInsert:
+
+A note on node `path` and `__dirname`
+These variables come installed in node, and basically they help us ensure that we're running things from the right place, and we have access to the imports we need. __dirname is a pre-defined global variable whose value corresponds to the absolute path leading to the file it's called in (at run time, which is pertinent for us, because we're transpiling before running).
+
+A note on migrations in MikroORM.
+After running the $ npx mikro-orm migration:create, from https://mikro-orm.io/docs/migrations/#using-via-cli, we'll have a new migrations directory with the literal SQL generated by our data definitions in our entities. In the migrations, we can see the data types of all of our properties.
+We can actually automate the migrations of our 

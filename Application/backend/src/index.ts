@@ -2,14 +2,10 @@ import { MikroORM } from "@mikro-orm/core";
 import { __prod__ } from "./constants";
 import { Post } from "./entities/Post";
 
+import microConfig from "./mikro-orm.config";
+
 const main = async () => {
-  console.log("Hello orld");
-  const orm = await MikroORM.init({
-    dbName: "lireddit",
-    entities: [Post],
-    type: "postgresql",
-    debug: !__prod__,
-  });
+  const orm = await MikroORM.init(microConfig);
 
   //Create a new Post (does not affect db)
   const post = orm.em.create(Post, { title: "My first post" });
