@@ -147,6 +147,32 @@ console.log('Hello world!');
             $ npx mikro-orm migration:create
         If running the above gives you the "role postgres doesn't exist" error (which means there's no defined postgres user), then see 5.c.3, '(Optional) If now you DON'T see postgres account listed, exit and run the following'.
 
+        v. Delete `dist` folder, for now, to avoid problems later with duplicates.
+
+        vi. Automate migration by including it in src/index.ts. Modify src/index.ts to the following. Test success with `start` and `watch` command chain.
+        //src/index.ts
+        import { MikroORM } from "@mikro-orm/core";
+
+        import { __prod__ } from "./constants";
+        import { Post } from "./entities/Post";
+        import microConfig from "./mikro-orm.config";
+
+        const main = async () => {
+            const orm = await MikroORM.init(microConfig);
+            await orm.getMigrator().up();
+
+            //Create a new Post (does not affect db)
+            const post = orm.em.create(Post, { title: "My first post" });
+            await orm.em.persistAndFlush(post);
+            console.log("--------------SQL 2-------------------");
+            await orm.em.nativeInsert(Post, { title: "My first title 2" });
+            };
+
+            main().catch((e) => {
+            console.log(e);
+        });
+
+
 
 
 Before losing your mind on debugging:
