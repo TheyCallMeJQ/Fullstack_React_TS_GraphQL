@@ -604,8 +604,18 @@ console.log('Hello world!');
             "connect-redis": "^5.0.0",
             "express-session": "^1.17.1",
             "redis": "^3.0.2",
+        iv. Install to devDependencies:
+            "@types/connect-redis": "^0.0.14",
+            "@types/express-session": "^1.17.0",
+            "@types/redis": "^2.8.27",
+        v. Add redis to app in ./src/index.ts
+             
 
 
+In which order does my express middleware run? In the same order as you add it onto our app.
+
+How do I know which types I may need to install after installing new packages?
+If the import is highlighted in red, hovering over it should tell us which types are missing.
 
 We're using Connect-Redis for our redis. 
 https://github.com/tj/connect-redis

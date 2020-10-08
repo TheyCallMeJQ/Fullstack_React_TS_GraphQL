@@ -11,6 +11,13 @@ import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
 
+import connectRedis from "connect-redis";
+import redis from "redis";
+import session from "express-session";
+
+let RedisStore = connectRedis(session);
+let redisClient = redis.createClient();
+
 const main = async () => {
   //Connect to MikroORM
   const orm = await MikroORM.init(microConfig);
@@ -19,6 +26,15 @@ const main = async () => {
 
   const PORT = 4000;
   const app = express();
+
+  app.use(
+    session({
+      name: "qid",
+      store: new RedisStore({ client: redisClient }),
+      secret: "keyboard cat",
+      resave: false,
+    })
+  );
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({

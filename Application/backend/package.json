@@ -13,6 +13,8 @@
     "stop-pg": "brew services stop postgresql",
     "start-redis": "brew services start redis",
     "stop-redis": "brew services stop redis",
+    "start-services": "brew services start postgresql && brew services start redis",
+    "stop-services": "brew services stop postgresql && brew services stop redis",
     "create:migration": "mikro-orm migration:create"
   },
   "keywords": [],
@@ -36,8 +38,11 @@
     "type-graphql": "^1.0.0"
   },
   "devDependencies": {
+    "@types/connect-redis": "^0.0.14",
     "@types/express": "^4.17.8",
+    "@types/express-session": "^1.17.0",
     "@types/node": "^14.11.5",
+    "@types/redis": "^2.8.27",
     "concurrently": "^5.3.0",
     "nodemon": "^2.0.4",
     "ts-node": "^9.0.0",
