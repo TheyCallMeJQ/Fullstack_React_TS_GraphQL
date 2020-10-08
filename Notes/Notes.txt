@@ -357,6 +357,12 @@ What does it do for us to implement our HelloResolver in our src/index.ts schema
 Before losing your mind on debugging:
 Make sure your dist looks the way it should. It's possible that over the course of programming, it gets filled up with a lot of trash (or duplicates from slightly different files). The solution? Erase dist and re-run our `start` and `watch` script, to remake a fresh one.
 
+A note on module not found from the resolvers:
+Not sure why, but over in the resolver definitions, we need to need to specify the entity type via the '../entities/post' format, as opposed to the more general 'src/entities/post'. Not sure why.
+
+A note on error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+For this you need to add 'class-validator' to dev dependencies.
+
 A note on the purpose of our mikro-orm.config.ts:
 We make this src/mikro-orm.config.ts in order to be able to access our custom data types from our MikroORM CLI.
 
