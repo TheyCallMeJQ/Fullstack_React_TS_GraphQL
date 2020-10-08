@@ -594,8 +594,21 @@ console.log('Hello world!');
                 }
             }
 
+        
+    8. User session 
+        i. Install redis - https://formulae.brew.sh/formula/redis
+        ii. Create new redis scripts
+            "start-redis": "brew services start redis",
+            "stop-redis": "brew services stop redis",
+        iii. Install to dependencies:
+            "connect-redis": "^5.0.0",
+            "express-session": "^1.17.1",
+            "redis": "^3.0.2",
 
 
+
+We're using Connect-Redis for our redis. 
+https://github.com/tj/connect-redis
 
 If you find the GraphQL server becoming unresponsive following a failed entry because of a violated unique constraint, consider using em.clear().
 https://github.com/mikro-orm/mikro-orm/issues/696
