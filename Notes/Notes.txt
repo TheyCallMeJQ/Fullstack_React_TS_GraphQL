@@ -171,12 +171,12 @@ console.log('Hello world!');
         });
     7. Initialize server
         a. Add to dependencies:
-            - express
-            - apollo-server-express
-            - graphql
-            - type-graphql
+            "apollo-server-express": "^2.18.2",
+            "express": "^4.17.1",
+            "graphql": "^15.3.0",
+            "type-graphql": "^1.0.0"
         b. Add to devDependencies
-            - @types/express
+            "@types/express": "^4.17.8",
         c. Test express works properly with the following:
             1. ensure src/index.ts matches:
             import { MikroORM } from "@mikro-orm/core";
@@ -255,7 +255,15 @@ console.log('Hello world!');
                 console.log(e);
             });
             iii. Verify successful graphQL endpoint by navigating to http://localhost:4000 and trying out the `hello` query. You should see as output 'Hello world'
+        e. Combine apollo-server-express with MikroORM for some CRUD ops
+            i. Modify Post entity to be a GraphQL type.
+            //src/entities/Post.ts
+            ii. Change src/index.ts to include context into apolloServer.
+            iii. Define MyContext type in types.ts.
+            iv. Define PostResolver, using context.
+
             
+
 
 
   
