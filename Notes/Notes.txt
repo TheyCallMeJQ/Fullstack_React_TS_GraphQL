@@ -174,11 +174,13 @@ console.log('Hello world!');
             "apollo-server-express": "^2.18.2",
             "express": "^4.17.1",
             "graphql": "^15.3.0",
-            "type-graphql": "^1.0.0"
+            "type-graphql": "^1.0.0",
+            "reflect-metadata": "^0.1.13"
         b. Add to devDependencies
             "@types/express": "^4.17.8",
         c. Test express works properly with the following:
             1. ensure src/index.ts matches:
+            import "reflect-metadata";
             import { MikroORM } from "@mikro-orm/core";
             import express from "express";
 
@@ -220,6 +222,7 @@ console.log('Hello world!');
             }
             ii. Implement hello resolver in apollo-server graphql schema
             //src/index.ts
+            import "reflect-metadata";
             import { MikroORM } from "@mikro-orm/core";
             import express from "express";
             import { ApolloServer } from "apollo-server-express";
@@ -256,32 +259,34 @@ console.log('Hello world!');
             });
             iii. Verify successful graphQL endpoint by navigating to http://localhost:4000 and trying out the `hello` query. You should see as output 'Hello world'
         e. Combine apollo-server-express with MikroORM for some CRUD ops
-            i. Modify Post entity to be a GraphQL type via @ObjectType declaration.
+            i. Modify Post entity to be a GraphQL type via @ObjectType declaration, specifying the return types of each field.
             //src/entities/Post.ts
             import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
-            import { Field, ObjectType } from "type-graphql";
+            import { Field, Int, ObjectType } from "type-graphql";
 
             @ObjectType()
             @Entity()
             export class Post {
-            @Field()
-            @PrimaryKey()
-            id!: number;
+                @Field(() => Int)
+                @PrimaryKey()
+                id!: number;
 
-            @Field()
-            @Property({ type: "date" })
-            createdAt = new Date();
+                @Field(() => String)
+                @Property({ type: "date" })
+                createdAt = new Date();
 
-            @Field()
-            @Property({ type: "date", onUpdate: () => new Date() })
-            updatedAt = new Date();
+                @Field(() => String)
+                @Property({ type: "date", onUpdate: () => new Date() })
+                updatedAt = new Date();
 
-            @Field()
-            @Property({ type: "text" })
-            title!: string;
+                @Field()
+                @Property({ type: "text" })
+                title!: string;
             }
 
+
             ii. Change src/index.ts to include context into apolloServer.
+            import "reflect-metadata";
             import { MikroORM } from "@mikro-orm/core";
             import express from "express";
             import { ApolloServer } from "apollo-server-express";
@@ -294,27 +299,27 @@ console.log('Hello world!');
             import { PostResolver } from "./resolvers/post";
 
             const main = async () => {
-            //Connect to MikroORM
-            const orm = await MikroORM.init(microConfig);
-            //Run migrations
-            await orm.getMigrator().up();
+                //Connect to MikroORM
+                const orm = await MikroORM.init(microConfig);
+                //Run migrations
+                await orm.getMigrator().up();
 
-            const PORT = 4000;
-            const app = express();
+                const PORT = 4000;
+                const app = express();
 
-            const apolloServer = new ApolloServer({
-                schema: await buildSchema({
-                resolvers: [HelloResolver, PostResolver],
-                validate: false,
-                }),
-                context: () => ({ em: orm.em }),
-            });
+                const apolloServer = new ApolloServer({
+                    schema: await buildSchema({
+                    resolvers: [HelloResolver, PostResolver],
+                    validate: false,
+                    }),
+                    context: () => ({ em: orm.em }),
+                });
 
-            apolloServer.applyMiddleware({ app });
+                apolloServer.applyMiddleware({ app });
 
-            app.listen(PORT, () => {
-                console.log(`Server listening on port ${PORT}`);
-            });
+                app.listen(PORT, () => {
+                    console.log(`Server listening on port ${PORT}`);
+                });
             };
 
             main().catch((e) => {
@@ -330,7 +335,7 @@ console.log('Hello world!');
                 em: EntityManager<any> & EntityManager<IDatabaseDriver<Connection>>
             }
 
-            iv. Define PostResolver class, using context.
+            iv. Define PostResolver class, using context, with default `hello world` resolver.
             import { Post } from "src/entities/Post";
             import { Query, Resolver } from "type-graphql";
 
