@@ -10,7 +10,9 @@ import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 
 const main = async () => {
+  //Connect to MikroORM
   const orm = await MikroORM.init(microConfig);
+  //Run migrations
   await orm.getMigrator().up();
 
   const PORT = 4000;

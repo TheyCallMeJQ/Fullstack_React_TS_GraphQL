@@ -256,11 +256,93 @@ console.log('Hello world!');
             });
             iii. Verify successful graphQL endpoint by navigating to http://localhost:4000 and trying out the `hello` query. You should see as output 'Hello world'
         e. Combine apollo-server-express with MikroORM for some CRUD ops
-            i. Modify Post entity to be a GraphQL type.
+            i. Modify Post entity to be a GraphQL type via @ObjectType declaration.
             //src/entities/Post.ts
+            import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+            import { Field, ObjectType } from "type-graphql";
+
+            @ObjectType()
+            @Entity()
+            export class Post {
+            @Field()
+            @PrimaryKey()
+            id!: number;
+
+            @Field()
+            @Property({ type: "date" })
+            createdAt = new Date();
+
+            @Field()
+            @Property({ type: "date", onUpdate: () => new Date() })
+            updatedAt = new Date();
+
+            @Field()
+            @Property({ type: "text" })
+            title!: string;
+            }
+
             ii. Change src/index.ts to include context into apolloServer.
+            import { MikroORM } from "@mikro-orm/core";
+            import express from "express";
+            import { ApolloServer } from "apollo-server-express";
+            import { buildSchema } from "type-graphql";
+
+            import { __prod__ } from "./constants";
+            import microConfig from "./mikro-orm.config";
+
+            import { HelloResolver } from "./resolvers/hello";
+            import { PostResolver } from "./resolvers/post";
+
+            const main = async () => {
+            //Connect to MikroORM
+            const orm = await MikroORM.init(microConfig);
+            //Run migrations
+            await orm.getMigrator().up();
+
+            const PORT = 4000;
+            const app = express();
+
+            const apolloServer = new ApolloServer({
+                schema: await buildSchema({
+                resolvers: [HelloResolver, PostResolver],
+                validate: false,
+                }),
+                context: () => ({ em: orm.em }),
+            });
+
+            apolloServer.applyMiddleware({ app });
+
+            app.listen(PORT, () => {
+                console.log(`Server listening on port ${PORT}`);
+            });
+            };
+
+            main().catch((e) => {
+                console.log(e);
+            });
+
             iii. Define MyContext type in types.ts.
-            iv. Define PostResolver, using context.
+            Note: find the type of em by hovering over orm.em, in /src/index.ts, and copy-pasting the type.
+            //types.ts
+            import { EntityManager, IDatabaseDriver, Connection } from "@mikro-orm/core";
+
+            export type MyContext {
+                em: EntityManager<any> & EntityManager<IDatabaseDriver<Connection>>
+            }
+
+            iv. Define PostResolver class, using context.
+            import { Post } from "src/entities/Post";
+            import { Query, Resolver } from "type-graphql";
+
+            @Resolver()
+            export class PostResolver {
+                @Query(() => [Post])
+                hello() {
+                    return "Hello world!";
+                }
+            }
+
+            v. Define post resolvers
 
             
 

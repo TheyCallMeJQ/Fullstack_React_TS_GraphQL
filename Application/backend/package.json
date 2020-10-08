@@ -6,7 +6,7 @@
   "scripts": {
     "transpile": "tsc -w",
     "execute-transpiled": "nodemon dist/index.js",
-    "JQdev": "concurrently --kill-others \"yarn transpile\" \"yarn execute-transpiled\"",
+    "JQdev": "tsc -w && concurrently --kill-others \"yarn transpile\" \"yarn execute-transpiled\"",
     "start": "nodemon dist/index.js",
     "watch": "tsc -w",
     "pg-start": "brew services start postgresql",
