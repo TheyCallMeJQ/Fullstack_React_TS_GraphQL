@@ -348,8 +348,118 @@ console.log('Hello world!');
             }
 
             v. Define post resolvers
+            import { Post } from "../entities/Post";
+            import { MyContext } from "src/types";
+            import { Arg, Ctx, Int, Mutation, Query, Resolver } from "type-graphql";
 
-            
+            @Resolver()
+            export class PostResolver {
+            @Query(() => [Post])
+            posts(@Ctx() { em }: MyContext): Promise<Post[]> {
+                return em.find(Post, {});
+            }
+
+            @Query(() => Post, { nullable: true })
+            post(
+                @Ctx() { em }: MyContext,
+                @Arg("id", () => Int) id: number
+            ): Promise<Post | null> {
+                const post = em.findOne(Post, { id });
+                return post;
+            }
+
+            @Mutation(() => Post)
+            async createPost(
+                @Ctx() { em }: MyContext,
+                @Arg("title", () => String) title: string
+            ): Promise<Post> {
+                const post = em.create(Post, { title });
+                await em.persistAndFlush(post);
+                return post;
+            }
+
+            @Mutation(() => Post, { nullable: true })
+            async updatePost(
+                @Ctx() { em }: MyContext,
+                @Arg("id", () => Number) id: number,
+                @Arg("title", () => String, { nullable: true }) title: string
+            ): Promise<Post | null> {
+                const post = await em.findOne(Post, { id });
+                if (!post) {
+                    return null;
+                }
+                if (typeof title !== undefined) {
+                    post.title = title;
+                    await em.persistAndFlush(post);
+                }
+                return post;
+            }
+
+            @Mutation(() => Boolean)
+            async deletePost(
+                @Ctx() { em }: MyContext,
+                @Arg("id", () => Number) id: number
+            ): Promise<boolean> {
+                try {
+                await em.nativeDelete(Post, { id });
+                return true;
+                } catch (e) {
+                console.log("Error", e);
+                }
+                return false;
+            }
+            }
+
+    8. Authentication
+        i. create:migration script to make life easier
+            "create:migration": "mikro-orm migration:create"
+        ii. Create User entity
+            import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+            import { Field, Int, ObjectType } from "type-graphql";
+
+            @ObjectType()
+            @Entity()
+            export class User {
+                @Field(() => Int)
+                @PrimaryKey()
+                id!: number;
+
+                @Field(() => String)
+                @Property({ type: "date" })
+                createdAt = new Date();
+
+                @Field(() => String)
+                @Property({ type: "date", onUpdate: () => new Date() })
+                updatedAt = new Date();
+
+                @Property({ type: "text", unique: true })
+                username!: string;
+
+                @Property({ type: "text" })
+                password!: string;
+            }
+        iii. Add User entity to micro-orm.config.ts
+        import { MikroORM } from "@mikro-orm/core";
+        import path from "path";
+        import { __prod__ } from "./constants";
+        import { Post } from "./entities/Post";
+        import { User } from "./entities/User";
+
+        export default {
+            migrations: {
+                path: path.join(__dirname, "./migrations"), // path to the folder with migrations
+                pattern: /^[\w-]+\d+\.[tj]s$/, // regex pattern for the migration files (.js or .ts)
+            },
+            dbName: "lireddit",
+            entities: [Post, User],
+            type: "postgresql",
+            debug: !__prod__,
+        } as Parameters<typeof MikroORM.init>[0];
+
+        iii. Create new migration via yarn create:migration`
+
+
+
 
 
 
