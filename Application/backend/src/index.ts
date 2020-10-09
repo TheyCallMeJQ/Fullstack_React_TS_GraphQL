@@ -41,6 +41,7 @@ const main = async () => {
         secure: __prod__,
         sameSite: "lax", //csrf
       },
+      saveUninitialized: false,
       secret: "hbfwelmxlzwjdcdllw",
       resave: false,
     })

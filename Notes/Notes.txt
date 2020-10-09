@@ -610,11 +610,11 @@ console.log('Hello world!');
             "@types/redis": "^2.8.27",
         v. Add request and response to custom context definition, in ./src/types.ts
         import { EntityManager, IDatabaseDriver, Connection } from "@mikro-orm/core";
-        import {Request, Response} from 'express'
+        import { Request, Response } from "express";
 
         export type MyContext = {
             em: EntityManager<any> & EntityManager<IDatabaseDriver<Connection>>;
-            req: Request;
+            req: Request & { session: Express.Session };
             res: Response;
         };
 
@@ -663,7 +663,8 @@ console.log('Hello world!');
                     secure: __prod__,
                     sameSite: 'lax',//csrf
 
-                }
+                },
+                saveUninitialized: false,
                 secret: "hbfwelmxlzwjdcdllw",
                 resave: false,
                 })
@@ -671,8 +672,8 @@ console.log('Hello world!');
 
             const apolloServer = new ApolloServer({
                 schema: await buildSchema({
-                resolvers: [HelloResolver, PostResolver, UserResolver],
-                validate: false,
+                    resolvers: [HelloResolver, PostResolver, UserResolver],
+                    validate: false,
                 }),
                 context: ({req, res}): MyContext => ({ em: orm.em, req, res }),
             });
@@ -688,6 +689,49 @@ console.log('Hello world!');
         main().catch((e) => {
             console.log(e);
         });
+        
+        vi. Add user id to request session on login
+        //src/resolvers/user
+        ...
+        @Mutation(() => UserResponse)
+        async login(
+            @Ctx() { em, req }: MyContext,
+            @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
+        ): Promise<UserResponse> {
+            const user = await em.findOne(User, { username: input.username });
+            if (!user) {
+            return {
+                errors: [
+                {
+                    field: "username",
+                    message: "That username doesn't exist",
+                },
+                ],
+            };
+            }
+            const hashedPassword = user.password;
+            const isGoodPassword = await argon2.verify(hashedPassword, input.password);
+            if (!isGoodPassword) {
+            return {
+                errors: [
+                {
+                    field: "password",
+                    message: "That password is incorrect",
+                },
+                ],
+            };
+            }
+
+            req.session.userId = user.id; //<-- set to session here
+            return { user };
+        }
+        ...
+
+        vii. Test everything on local playground
+            NOTE: For this to work, you must go into the local playground settings and set 
+                "request.credentials":"include"
+        Delete cookies via DevTools > Application > Cookies
+        Hit login, with proper credentials, and observe the results.        
 
   
 
