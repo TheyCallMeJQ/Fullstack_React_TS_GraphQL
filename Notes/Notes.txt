@@ -883,10 +883,21 @@ console.log('Hello world!');
 
 Frontend:
 1. Use nextJS with ChakraUI: https://github.com/vercel/next.js/tree/canary/examples/with-chakra-ui
+See https://chakra-ui.com/getting-started for more info on their services, we're going to be using their FormControl components
 2. Remove all components, replace index.js with default Hello world div, replace extensions of index, _app, and theme to tsx.
 3. Add to devDependencies:
+    "@types/node": "^14.11.8",
+    "typescript": "^4.0.3"
+4. Add to dependencies:
+    "formik": "^2.2.0",
+5. Create register page   
+5. 
 
-  
+Typescript-react code snippets:
+https://gist.github.com/benawad/1e9dd01994f78489306fbfd6f7b01cd3#file-snippets-typescriptreact-json
+Add the above to your typescriptreact.json file to have some sick new custom code snippets  
+
+
 A note on what's happening with session.
 When we do req.session.userId = user.id, we're storing the user's id on the session. Behind the scenes, any data that we store on our req is going to be stored on redis, and redis is a key-value store. After the data is stored on redis, a signed version of the key it's saved under is sent to the browser, and whenever the user makes a request, a copy of that key is sent to the server to test for authorization to access the requisite data. After the cookie is 
 
