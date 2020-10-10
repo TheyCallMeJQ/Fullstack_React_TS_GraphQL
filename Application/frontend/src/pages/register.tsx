@@ -1,15 +1,43 @@
 import React from "react";
 import { Formik, Form } from "formik";
 import {
+  Box,
+  Button,
   FormControl,
   FormErrorMessage,
   FormLabel,
   Input,
 } from "@chakra-ui/core";
 import { Wrapper } from "../components/Wrapper";
+import { InputField } from "../components/InputField";
 
 interface registerProps {}
 
+// const Register: React.FC<registerProps> = ({}) => {
+//   return (
+//     <Wrapper variant="small">
+//       <Formik
+//         initialValues={{ username: "", password: "" }}
+//         onSubmit={(values) => console.log(values)}
+//       >
+//         {(values, handleChange) => (
+//           <Form>
+//             <FormControl>
+//               <FormLabel htmlFor="username">Username</FormLabel>
+//               <Input
+//                 value={values.username}
+//                 onChange={handleChange}
+//                 id="username"
+//                 placeholder="username"
+//               />
+//               {/* <FormErrorMessage>{form.errors.name}</FormErrorMessage> */}
+//             </FormControl>
+//           </Form>
+//         )}
+//       </Formik>
+//     </Wrapper>
+//   );
+// };
 const Register: React.FC<registerProps> = ({}) => {
   return (
     <Wrapper variant="small">
@@ -17,18 +45,29 @@ const Register: React.FC<registerProps> = ({}) => {
         initialValues={{ username: "", password: "" }}
         onSubmit={(values) => console.log(values)}
       >
-        {(values, handleChange) => (
+        {({ isSubmitting }) => (
           <Form>
-            <FormControl>
-              <FormLabel htmlFor="username">Username</FormLabel>
-              <Input
-                value={values.username}
-                onChange={handleChange}
-                id="username"
-                placeholder="username"
+            <InputField
+              label="Username"
+              placeholder="username"
+              name="username"
+            />
+            <Box mt={4}>
+              <InputField
+                label="Password"
+                placeholder="password"
+                name="password"
+                type="password"
               />
-              {/* <FormErrorMessage>{form.errors.name}</FormErrorMessage> */}
-            </FormControl>
+            </Box>
+            <Button
+              mt={4}
+              isLoading={isSubmitting}
+              type="submit"
+              variantColor="teal"
+            >
+              Submit
+            </Button>
           </Form>
         )}
       </Formik>
