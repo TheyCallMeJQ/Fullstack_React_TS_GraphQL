@@ -890,8 +890,98 @@ See https://chakra-ui.com/getting-started for more info on their services, we're
     "typescript": "^4.0.3"
 4. Add to dependencies:
     "formik": "^2.2.0",
+5. Create generic InputField component
+    import {
+    FormControl,
+    FormLabel,
+    Input,
+    FormErrorMessage,
+    } from "@chakra-ui/core";
+    import { useField } from "formik";
+    import React, { InputHTMLAttributes } from "react";
+
+    type InputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
+    label: string;
+    name: string;
+    };
+
+    export const InputField: React.FC<InputFieldProps> = ({
+    label,
+    size: _,
+    ...props
+    }) => {
+    const [field, { error }] = useField(props);
+
+    return (
+        <FormControl isInvalid={!!error}>
+        <FormLabel htmlFor={field.name}>{label}</FormLabel>
+        <Input {...field} {...props} id={field.name} />
+        {error ? <FormErrorMessage>{error}</FormErrorMessage> : null}
+        </FormControl>
+    );
+    };
+
 5. Create register page   
-5. 
+    import React from "react";
+    import { Formik, Form } from "formik";
+    import {
+    Box,
+    Button,
+    FormControl,
+    FormErrorMessage,
+    FormLabel,
+    Input,
+    } from "@chakra-ui/core";
+    import { Wrapper } from "../components/Wrapper";
+    import { InputField } from "../components/InputField";
+
+    interface registerProps {}
+
+    const Register: React.FC<registerProps> = ({}) => {
+    return (
+        <Wrapper variant="small">
+        <Formik
+            initialValues={{ username: "", password: "" }}
+            onSubmit={(values) => console.log(values)}
+        >
+            {({ isSubmitting }) => (
+            <Form>
+                <InputField
+                label="Username"
+                placeholder="username"
+                name="username"
+                />
+                <Box mt={4}>
+                <InputField
+                    label="Password"
+                    placeholder="password"
+                    name="password"
+                    type="password"
+                />
+                </Box>
+                <Button
+                mt={4}
+                isLoading={isSubmitting}
+                type="submit"
+                variantColor="teal"
+                >
+                Submit
+                </Button>
+            </Form>
+            )}
+        </Formik>
+        </Wrapper>
+    );
+    };
+
+    export default Register;
+
+6. Set up GraphQL URQL client
+https://formidable.com/open-source/urql/docs/
+    a. add to dependencies
+        "graphql": "^15.3.0",
+        "urql": "^1.10.1"
+    b. Create urql client in _app.tsx
 
 Typescript-react code snippets:
 https://gist.github.com/benawad/1e9dd01994f78489306fbfd6f7b01cd3#file-snippets-typescriptreact-json
