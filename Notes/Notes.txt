@@ -636,7 +636,6 @@ console.log('Hello world!');
         import connectRedis from "connect-redis";
         import redis from "redis";
         import session from "express-session";
-        import { MyContext } from "./types";
 
         const main = async () => {
             //Connect to MikroORM
@@ -675,7 +674,7 @@ console.log('Hello world!');
                     resolvers: [HelloResolver, PostResolver, UserResolver],
                     validate: false,
                 }),
-                context: ({req, res}): MyContext => ({ em: orm.em, req, res }),
+                context: ({req, res}) => ({ em: orm.em, req, res }),
             });
 
 
@@ -731,7 +730,7 @@ console.log('Hello world!');
             NOTE: For this to work, you must go into the local playground settings and set 
                 "request.credentials":"include"
         Delete cookies via DevTools > Application > Cookies
-        Hit login, with proper credentials, and observe the results.        
+        Hit login, with proper credentials, and observe the results; you should see a cookie qid.        
 
   
 
