@@ -16,7 +16,6 @@ const Register: React.FC<registerProps> = ({}) => {
 
   return (
     <Wrapper variant="small">
-      <h1>Register page</h1>
       <Formik
         initialValues={{ username: "", password: "" }}
         onSubmit={async (values, { setErrors }) => {
@@ -52,7 +51,7 @@ const Register: React.FC<registerProps> = ({}) => {
               type="submit"
               variantColor="teal"
             >
-              Submit
+              Register
             </Button>
           </Form>
         )}
