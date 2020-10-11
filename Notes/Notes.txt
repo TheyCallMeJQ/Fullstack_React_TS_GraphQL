@@ -1321,8 +1321,161 @@ https://formidable.com/open-source/urql/docs/
 
     export default Register;
 
-8. Fix error "ValidationError: You cannot call em.flush() from inside lifecycle hook handlers" via QueryBuilder, instead of calling em.clear().
-    
+8. Fix error "ValidationError: You cannot call em.flush() from inside lifecycle hook handlers" via QueryBuilder, instead of calling em.clear(). We have new user mutation resolver:
+    //backend/src/resolvers/user.ts
+    import { EntityManager } from "@mikro-orm/postgresql";
+    //...
+    @Mutation(() => UserResponse)
+    async register(
+        @Ctx() { em, req }: MyContext,
+        @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
+    ): Promise<UserResponse> {
+        if (input.username.length <= 2) {
+        return {
+            errors: [
+            {
+                field: "username",
+                message: "Length of provided username must be greater than 2.",
+            },
+            ],
+        };
+        }
+        if (input.password.length <= 3) {
+        return {
+            errors: [
+            {
+                field: "password",
+                message: "Length of provided password must be greater than 3.",
+            },
+            ],
+        };
+        }
+        const hashedPassword = await argon2.hash(input.password);
+
+        try {
+        const [user] = await (em as EntityManager)
+            .createQueryBuilder(User)
+            .getKnexQuery()
+            .insert({
+            username: input.username,
+            password: hashedPassword,
+            created_at: new Date(),
+            updated_at: new Date(),
+            })
+            .returning("*");
+
+        //Store user ID on session
+        //This will add a cookie on the session
+        //Keep the user logged in
+        req.session.userId = user.id;
+
+        return { user };
+        } catch (err) {
+        console.log("message", err.message);
+        if (err.code === "23505" || err.detail.includes("already exists")) {
+            em.clear();
+            //duplicate username error
+            return {
+            errors: [
+                {
+                message: "This username already exists",
+                field: "username",
+                },
+            ],
+            };
+        }
+        return {
+            errors: [
+            {
+                message: "Something went wrong",
+                field: "Unknown",
+            },
+            ],
+        };
+        }
+    }
+
+9. Login page
+    a. Generate custom useLoginMutation hook from graphQL definition. Create src/graphql/mutations/login.graphql:
+    mutation Login($username: String!, $password: String!) {
+        login(input: { username: $username, password: $password }) {
+            errors {
+                field
+                message
+            }
+            user {
+                id
+                username
+            }
+        }
+    }
+
+    b. Frontend page (basically identical to register, with some slight alterations)
+    import React from "react";
+    import { Formik, Form } from "formik";
+    import { Box, Button } from "@chakra-ui/core";
+    import { Wrapper } from "../components/Wrapper";
+    import { InputField } from "../components/InputField";
+    import { useLoginMutation } from "../generated/graphql";
+    import { toErrorMap } from "../utils/toErrorMap";
+
+    import { useRouter } from "next/router";
+
+    interface registerProps {}
+
+    const Login: React.FC<registerProps> = ({}) => {
+    const [, login] = useLoginMutation();
+    const router = useRouter();
+
+    return (
+        <Wrapper variant="small">
+        <h1>Login page</h1>
+        <Formik
+            initialValues={{ username: "", password: "" }}
+            onSubmit={async (values, { setErrors }) => {
+            console.log(values);
+            //return promise to end spinner on resolve
+            const response = await login(values);
+            if (response.data?.login.errors) {
+                setErrors(toErrorMap(response.data.login.errors));
+            } else if (response.data?.login.user) {
+                //Redirect the user on successful registration
+                router.push("/");
+            }
+            }}
+        >
+            {({ isSubmitting }) => (
+            <Form>
+                <InputField
+                label="Username"
+                placeholder="username"
+                name="username"
+                />
+                <Box mt={4}>
+                <InputField
+                    label="Password"
+                    placeholder="password"
+                    name="password"
+                    type="password"
+                />
+                </Box>
+                <Button
+                mt={4}
+                isLoading={isSubmitting}
+                type="submit"
+                variantColor="teal"
+                >
+                Submit
+                </Button>
+            </Form>
+            )}
+        </Formik>
+        </Wrapper>
+    );
+    };
+
+    export default Login;
+
 
 
 

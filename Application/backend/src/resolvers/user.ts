@@ -15,7 +15,7 @@ import { User } from "../entities/User";
 
 @InputType()
 class UsernamePasswordInput {
-  @Field()
+  @Field(() => String)
   username: string;
   @Field(() => String)
   password: string;
