@@ -9,6 +9,7 @@ import {
   ObjectType,
   Resolver,
 } from "type-graphql";
+import { EntityManager } from "@mikro-orm/postgresql";
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
 
@@ -73,12 +74,25 @@ export class UserResolver {
       };
     }
     const hashedPassword = await argon2.hash(input.password);
-    const user = em.create(User, {
-      username: input.username,
-      password: hashedPassword,
-    });
+
     try {
-      await em.persistAndFlush(user);
+      const [user] = await (em as EntityManager)
+        .createQueryBuilder(User)
+        .getKnexQuery()
+        .insert({
+          username: input.username,
+          password: hashedPassword,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+        .returning("*");
+
+      //Store user ID on session
+      //This will add a cookie on the session
+      //Keep the user logged in
+      req.session.userId = user.id;
+
+      return { user };
     } catch (err) {
       console.log("message", err.message);
       if (err.code === "23505" || err.detail.includes("already exists")) {
@@ -102,13 +116,6 @@ export class UserResolver {
         ],
       };
     }
-
-    //Store user ID on session
-    //This will add a cookie on the session
-    //Keep the user logged in
-    req.session.userId = user.id;
-
-    return { user };
   }
 
   @Mutation(() => UserResponse)
