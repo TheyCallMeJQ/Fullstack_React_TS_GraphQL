@@ -11,6 +11,7 @@ import {
 import { Wrapper } from "../components/Wrapper";
 import { InputField } from "../components/InputField";
 import { useRegisterMutation } from "../generated/graphql";
+import { toErrorMap } from "../utils/toErrorMap";
 
 interface registerProps {}
 
@@ -26,10 +27,7 @@ const Register: React.FC<registerProps> = ({}) => {
           //return promise to end spinner on resolve
           const response = await register(values);
           if (response.data?.register.errors) {
-            setErrors({
-              username: "Error on username input",
-              password: "Error on password input",
-            });
+            setErrors(toErrorMap(response.data.register.errors));
           }
         }}
       >
