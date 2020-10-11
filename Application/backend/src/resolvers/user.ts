@@ -1,4 +1,3 @@
-import { MyContext } from "src/types";
 import argon2 from "argon2";
 import {
   Arg,
@@ -10,6 +9,7 @@ import {
   ObjectType,
   Resolver,
 } from "type-graphql";
+import { MyContext } from "src/types";
 import { User } from "../entities/User";
 
 @InputType()
