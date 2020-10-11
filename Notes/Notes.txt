@@ -934,15 +934,37 @@ See https://chakra-ui.com/getting-started for more info on their services, we're
     } from "@chakra-ui/core";
     import { Wrapper } from "../components/Wrapper";
     import { InputField } from "../components/InputField";
+    import { useMutation } from "urql";
+
+    const REGISTER_MUTATION = `
+    mutation Register($username: String!, $password:String!){
+        register(input: {username: $username, password: $password}){
+        errors{
+            field
+            message
+        }
+        user{
+            id
+            username
+        }
+        }
+    }
+    `;
 
     interface registerProps {}
 
     const Register: React.FC<registerProps> = ({}) => {
+    const [{ data, error }, register] = useMutation(REGISTER_MUTATION);
+
     return (
         <Wrapper variant="small">
         <Formik
             initialValues={{ username: "", password: "" }}
-            onSubmit={(values) => console.log(values)}
+            onSubmit={(values) => {
+            console.log(values);
+            //return promise to end spinner on resolve
+            return register(values);
+            }}
         >
             {({ isSubmitting }) => (
             <Form>
@@ -976,12 +998,261 @@ See https://chakra-ui.com/getting-started for more info on their services, we're
 
     export default Register;
 
+
 6. Set up GraphQL URQL client
 https://formidable.com/open-source/urql/docs/
-    a. add to dependencies
+    a. add to frontend dependencies
         "graphql": "^15.3.0",
         "urql": "^1.10.1"
     b. Create urql client in _app.tsx
+        import { ThemeProvider, CSSReset, ColorModeProvider } from "@chakra-ui/core";
+
+        import theme from "../theme";
+
+        import { createClient, Provider } from "urql";
+        const client = createClient({
+        url: "http://localhost:4000/graphql",
+            fetchOptions: {
+                credentials: "include",
+            },
+        });
+
+        function MyApp({ Component, pageProps }) {
+        return (
+            <Provider value={client}>
+                <ThemeProvider theme={theme}>
+                    <ColorModeProvider>
+                    <CSSReset />
+                    <Component {...pageProps} />
+                    </ColorModeProvider>
+                </ThemeProvider>
+            </Provider>
+        );
+        }
+
+        export default MyApp;
+    
+    c. Add to backend dependencies
+        "cors": "^2.8.5",
+    d. Add to backend devDependencies
+        "@types/cors": "^2.8.8",  
+    e. Add cors to backend app on src/index.ts
+    import "reflect-metadata";
+    import { MikroORM } from "@mikro-orm/core";
+    import express from "express";
+    import { ApolloServer } from "apollo-server-express";
+    import { buildSchema } from "type-graphql";
+
+    import { __prod__ } from "./constants";
+    import microConfig from "./mikro-orm.config";
+
+    import { HelloResolver } from "./resolvers/hello";
+    import { PostResolver } from "./resolvers/post";
+    import { UserResolver } from "./resolvers/user";
+
+    import connectRedis from "connect-redis";
+    import redis from "redis";
+    import session from "express-session";
+
+    import cors from "cors";
+
+    const main = async () => {
+        //Connect to MikroORM
+        const orm = await MikroORM.init(microConfig);
+        //Run migrations
+        await orm.getMigrator().up();
+
+        const PORT = 4000;
+        const app = express();
+
+        const RedisStore = connectRedis(session);
+        const redisClient = redis.createClient();
+
+        app.use(
+            cors({
+                origin: "http://localhost:3000",
+                credentials: true,
+            })
+        );
+
+        app.use(
+            session({
+                name: "qid",
+                store: new RedisStore({ client: redisClient, disableTouch: true }),
+                cookie: {
+                    //No access to cookie from frontend
+                    httpOnly: true,
+                    //Set cookie lifespan to 10 years
+                    maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
+                    //Only work for https
+                    secure: __prod__,
+                    sameSite: "lax", //csrf
+                },
+                saveUninitialized: false,
+                secret: "hbfwelmxlzwjdcdllw",
+                resave: false,
+            })
+        );
+
+        const apolloServer = new ApolloServer({
+            schema: await buildSchema({
+                resolvers: [HelloResolver, PostResolver, UserResolver],
+                validate: false,
+            }),
+            context: ({ req, res }) => ({ em: orm.em, req, res }),
+        });
+
+        apolloServer.applyMiddleware({
+            app,
+            cors: false,
+        });
+
+        app.listen(PORT, () => {
+            console.log(`Server listening on port ${PORT}`);
+        });
+    };
+
+    main().catch((e) => {
+        console.log(e);
+    });
+      
+7. Ensure types returned from our mutators are of desired Typescript types
+    a. Install GraphQL code generator
+    https://graphql-code-generator.com/docs/getting-started/installation
+    Note: We already have graphql, so we're just going to want to add to frontend devDependencies:
+        "@graphql-codegen/cli": "^1.17.10",
+    We're then going to proceed with the initialization wizard: https://graphql-code-generator.com/docs/getting-started/installation#initialization-wizard
+
+    jq@Jacques-Philippes-MacBook-Air frontend % yarn graphql-codegen init
+    yarn run v1.22.5
+    $ /Users/jq/Desktop/Learning/Fullstack_React_GraphQL_Typescript_Tutorial/Application/frontend/node_modules/.bin/graphql-codegen init
+
+    Welcome to GraphQL Code Generator!
+    Answer few questions and we will setup everything for you.
+  
+    ? What type of application are you building? Application built with React
+    ? Where is your schema?: (path or url) http://localhost:4000/graphql
+    ? Where are your operations and fragments?: src/graphql/**/*.graphql
+    ? Pick plugins: TypeScript (required by other typescript plugins), TypeScript Operations (operations and fragments)
+    ? Where to write the output: src/generated/graphql.tsx
+    ? Do you want to generate an introspection file? No
+    ? How to name the config file? codegen.yml
+    ? What script in package.json should run the codegen? gen
+
+    Notice after this that we have a new 'gen' script in package.json.
+
+    b. Edit codegen.yml to:
+        overwrite: true
+        schema: "http://localhost:4000/graphql"
+        documents: "src/graphql/**/*.graphql"
+        generates:
+        src/generated/graphql.tsx:
+            plugins:
+            - "typescript"
+            - "typescript-operations"
+            - "typescript-urql"
+
+    c. (https://graphql-code-generator.com/docs/generated-config/typescript-urql/) Add to frontend devDependencies:
+        "@graphql-codegen/typescript-urql": "^2.0.2",
+
+    d. Create `./frontend/src/graphql/mutations/register.graphql`:
+    mutation Register($username: String!, $password: String!) {
+        register(input: { username: $username, password: $password }) {
+            errors {
+                field
+                message
+            }
+            user {
+                id
+                username
+            }
+        }
+    }
+
+    e. Run new 'gen' script, this will create ./frontend/src/generated/graphql.tsx
+        $ yarn gen
+
+    f. The generated file above will contain our mutation and query hooks, which we can use via import, now. Our new pages/register.tsx is as follows:
+    import React from "react";
+    import { Formik, Form } from "formik";
+    import {
+    Box,
+    Button,
+    FormControl,
+    FormErrorMessage,
+    FormLabel,
+    Input,
+    } from "@chakra-ui/core";
+    import { Wrapper } from "../components/Wrapper";
+    import { InputField } from "../components/InputField";
+    import { useRegisterMutation } from "../generated/graphql";
+
+    interface registerProps {}
+
+    const Register: React.FC<registerProps> = ({}) => {
+    const [{ data, error }, register] = useRegisterMutation();
+
+    return (
+        <Wrapper variant="small">
+        <Formik
+            initialValues={{ username: "", password: "" }}
+            onSubmit={async (values) => {
+            console.log(values);
+            //return promise to end spinner on resolve
+            const response = await register(values);
+            }}
+        >
+            {({ isSubmitting }) => (
+            <Form>
+                <InputField
+                label="Username"
+                placeholder="username"
+                name="username"
+                />
+                <Box mt={4}>
+                <InputField
+                    label="Password"
+                    placeholder="password"
+                    name="password"
+                    type="password"
+                />
+                </Box>
+                <Button
+                mt={4}
+                isLoading={isSubmitting}
+                type="submit"
+                variantColor="teal"
+                >
+                Submit
+                </Button>
+            </Form>
+            )}
+        </Formik>
+        </Wrapper>
+    );
+    };
+
+    export default Register;
+
+    Notice now the type of our register mutation is now RegisterMutation, instead of something more general, which is what we want.
+
+
+
+
+
+
+A note on using typescript to access deeply-nested data which may or may not be undefined:
+If we make a fetch returning to us 
+    if (response.data.register.errors){
+        //do something
+    }
+for example, it would be possible for us to getg an error in the case where data returned as undefined. In the past we would have to handle this either by chaining ORs, or what-have-you. We can do this more neatly in typescript, with the following:    
+    if (response.data?.register.errors){
+            //do something
+    }
+This allows us to more succintly handle the case wherein data is undefined.    
+
+
 
 Typescript-react code snippets:
 https://gist.github.com/benawad/1e9dd01994f78489306fbfd6f7b01cd3#file-snippets-typescriptreact-json
@@ -1068,6 +1339,7 @@ Not sure why, but over in the resolver definitions, we need to need to specify t
 
 A note on error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
 For this you need to add 'class-validator' to dev dependencies.
+Awad also shows us another way to solve this, by adding `"skipLibCheck": true` in tsconfig.json
 
 A note on the purpose of our mikro-orm.config.ts:
 We make this src/mikro-orm.config.ts in order to be able to access our custom data types from our MikroORM CLI.
