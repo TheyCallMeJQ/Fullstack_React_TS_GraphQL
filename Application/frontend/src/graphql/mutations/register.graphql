@@ -5,8 +5,7 @@ mutation Register($input: UsernamePasswordInput!) {
       message
     }
     user {
-      id
-      username
+      ...RegularUser
     }
   }
 }

@@ -1570,10 +1570,118 @@ https://formidable.com/open-source/urql/docs/
 
         export default MyApp;
 
-    c. Implement function to properly type our custom update
-    
+    c. Implement function to properly type our custom update and implement graphcache custom update (https://formidable.com/open-source/urql/docs/graphcache/custom-updates/#data-updates)
 
-    c. Implement graphcache custom update (https://formidable.com/open-source/urql/docs/graphcache/custom-updates/#data-updates)
+    // /frontend/src/pages/_app.tsx
+    import { ThemeProvider, CSSReset } from "@chakra-ui/core";
+
+    import theme from "../theme";
+
+    import { createClient, dedupExchange, fetchExchange, Provider } from "urql";
+    import { cacheExchange, QueryInput, Cache } from "@urql/exchange-graphcache";
+    import {
+    LoginMutation,
+    MeDocument,
+    MeQuery,
+    RegisterMutation,
+    } from "../generated/graphql";
+
+    function betterUpdateQuery<Result, Query>(
+        cache: Cache,
+        queryInput: QueryInput,
+        result: any,
+        func: (r: Result, q: Query) => Query
+    ) {
+        return cache.updateQuery(
+            queryInput,
+            (data) => func(result, data as any) as any
+        );
+    }
+
+    const client = createClient({
+        url: "http://localhost:4000/graphql",
+        fetchOptions: {
+            credentials: "include",
+        },
+        exchanges: [
+            dedupExchange,
+            cacheExchange({
+            updates: {
+                Mutation: {
+                login: (result, args, cache, info) => {
+                    betterUpdateQuery<LoginMutation, MeQuery>(
+                    cache,
+                    { query: MeDocument },
+                    result,
+                    (newQueryResult, lastQueryResult) => {
+                        if (newQueryResult.login.errors) {
+                        return lastQueryResult;
+                        }
+                        return {
+                        me: newQueryResult.login.user,
+                        };
+                    }
+                    );
+                },
+                register: (result, args, cache, info) => {
+                    betterUpdateQuery<RegisterMutation, MeQuery>(
+                    cache,
+                    { query: MeDocument },
+                    result,
+                    (newQueryResult, lastQueryResult) => {
+                        if (newQueryResult.register.errors) {
+                        return lastQueryResult;
+                        }
+                        return {
+                        me: newQueryResult.register.user,
+                        };
+                    }
+                    );
+                },
+                },
+            },
+            }),
+            fetchExchange,
+        ],
+    });
+
+    function MyApp({ Component, pageProps }: any) {
+        return (
+            <Provider value={client}>
+            <ThemeProvider theme={theme}>
+                <CSSReset />
+                <Component {...pageProps} />
+            </ThemeProvider>
+            </Provider>
+        );
+    }
+
+    export default MyApp;
+
+
+12. Implement RegularUser fragment to avoid re-specifying user properties, irrespective of User definition.
+    a. Create frontend/src/graphql/fragments/RegularUser.graphql:
+    // frontend/src/graphql/fragments/RegularUser.graphql
+    fragment RegularUser on User {
+        id
+        username
+    }
+    b. Replace any relevant mutation returns. For example, for our `me` query, instead of 
+    // frontend/src/graphql/queries/me.graphql
+    query Me {
+        me {
+            id
+            username
+        }
+    }
+    We can instead just have 
+    // frontend/src/graphql/queries/me.graphql
+    query Me {
+        me {
+            ...RegularUser
+        }
+    }
+    And this way, it doesn't matter if we add new data fields to our User data type, we're stil golden.
 
 
 
