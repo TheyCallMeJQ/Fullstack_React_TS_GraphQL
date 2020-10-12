@@ -39,6 +39,9 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  /**
+   * Return the user associated with the id on the current session.
+   */
   @Query(() => User, { nullable: true })
   async me(@Ctx() { req, em }: MyContext) {
     if (!req.session.userId) {

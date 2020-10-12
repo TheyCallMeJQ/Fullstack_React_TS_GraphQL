@@ -1476,6 +1476,108 @@ https://formidable.com/open-source/urql/docs/
 
     export default Login;
 
+10. Navbar component
+    a. First thing we want is to know who is the user currently signed in, to say "Welcome, [current user]". So let's define a 'me' UserResolver query, over in our backend, at ./src/resolvers/user, as follows:
+        /**
+        * Return the user associated with the id on the current session.
+        */
+        @Query(() => User, { nullable: true })
+        async me(@Ctx() { req, em }: MyContext) {
+            if (!req.session.userId) {
+                return null;
+            }
+            const user = await em.findOne(User, { id: req.session.userId });
+            return user;
+        }
+        Recall that in login and register, we set the id of the currently logged in user on the session on success. This operation, then, is an access to that user id, and we return the relevant user.
+    b. Next, define the GraphQL 'me' query, in frontend/src/graphql/queries/me.graphql, as follows:
+        query Me {
+            me {
+                id
+                username
+                //other user properties
+            }
+        }
+
+    c. In the frontend, execute our `gen` script, to generate the requisite custom hook, for use on our frontend component. We have
+        //package.json
+        "gen": "graphql-codegen --config codegen.yml"
+    and so
+        $ yarn gen
+
+    d. Define Navbar component, and access current user data via custom hook created by our above `gen` script. Recall that the custom hook's definition will be found in frontend/src/generated/graphql.tsx
+    //frontend/src/components/NavBar
+        import { Box, Flex, Link } from "@chakra-ui/core";
+        import React from "react";
+        import NextLink from "next/link";
+
+        import { useMeQuery } from "../generated/graphql";
+
+        interface NavBarProps {}
+
+        export const NavBar: React.FC<NavBarProps> = ({}) => {
+            const [{ data }] = useMeQuery();
+
+            return (
+                <Flex bg="tomato" p={4}>
+                {!!data?.me?.username && (
+                    <Box>
+                    <h1>Welcome, {data?.me?.username}</h1>
+                    </Box>
+                )}
+                <Box ml={"auto"}>
+                    <NextLink href="login">
+                    <Link mr={2}>Login</Link>
+                    </NextLink>
+                    <NextLink href="register">
+                    <Link>Register</Link>
+                    </NextLink>
+                </Box>
+                </Flex>
+            );
+        };
+    Note that if we delete our session cookie, qid, which is what we use to see whether or not we're signed in (effectively simulating a logout), everything works as expected. However, if we start our app logged out and log in, our navbar doesn't update properly to reflect that. This is because URQL uses caching, and we need to update the cache.
+
+11. Update set up and update URQL cache (https://formidable.com/open-source/urql/docs/graphcache/#installation-and-setup)
+    a. Add to frontend dependencies
+        "@urql/exchange-graphcache": "^3.1.4",
+    b. Add exchanges to frontend URQL client, in frontend/src/pages/_app.tsx
+        import { ThemeProvider, CSSReset } from "@chakra-ui/core";
+
+        import theme from "../theme";
+
+        import { createClient, dedupExchange, fetchExchange, Provider } from "urql";
+        import { cacheExchange } from "@urql/exchange-graphcache";
+
+        const client = createClient({
+            url: "http://localhost:4000/graphql",
+            fetchOptions: {
+                credentials: "include",
+            },
+            exchanges: [dedupExchange, cacheExchange({}), fetchExchange],
+        });
+
+        function MyApp({ Component, pageProps }: any) {
+            return (
+                <Provider value={client}>
+                <ThemeProvider theme={theme}>
+                    <CSSReset />
+                    <Component {...pageProps} />
+                </ThemeProvider>
+                </Provider>
+            );
+        }
+
+        export default MyApp;
+
+    c. Implement function to properly type our custom update
+    
+
+    c. Implement graphcache custom update (https://formidable.com/open-source/urql/docs/graphcache/custom-updates/#data-updates)
+
+
+
+
 
 
 
