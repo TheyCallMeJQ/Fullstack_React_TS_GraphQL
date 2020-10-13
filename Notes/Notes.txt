@@ -1693,6 +1693,45 @@ https://formidable.com/open-source/urql/docs/
     d. `yarn gen`, to create custom hooks
     e. Use custom hooks in the frontend (for instance, on our NavBar component)
 
+14. Setting up Server-side rendering with URQL and GraphQL (https://formidable.com/open-source/urql/docs/advanced/server-side-rendering/#nextjs)
+    a. install to dependencies
+        "react-is": "^16.13.1",
+        "next-urql": "^2.0.0",
+        "isomorphic-unfetch": "^3.1.0",
+    b. create ./frontend/src/utils/createUrqlClient.ts 
+    c. Refactor:
+        - betterUpdateQuery, createUrqlClient -> utils
+        - frontend/src/pages/_app.tsx:
+            import { CSSReset, ThemeProvider } from "@chakra-ui/core";
+            import theme from "../theme";
+
+            function MyApp({ Component, pageProps }: any) {
+                return (
+                    <ThemeProvider theme={theme}>
+                    <CSSReset />
+                    <Component {...pageProps} />
+                    </ThemeProvider>
+                );
+            }
+
+            export default MyApp;
+    d. Wrap pages with our URQL client, specify SSR where appropriate
+        //frontend/src/pages/index.tsx        
+        import React from "react";
+        import { withUrqlClient } from "next-urql";
+        import { NavBar } from "../components/NavBar";
+        import { createUrqlClient } from "../utils/createUrqlClient";
+
+        const Index = () => (
+            <>
+                <NavBar />
+                <h1>Hi!</h1>
+            </>
+        );
+
+        export default withUrqlClient(createUrqlClient, {ssr: true})(Index);
+
+
 
 So what's the flow for a new feature?
 1. Map out the frontend, see how we want our data
@@ -1708,12 +1747,14 @@ So what's the flow for a new feature?
         2. Test the resolvers on http://localhost:4000/graphql
         3. Create a graphql file in frontend/src/graphql/(mutations|queries|whatever) so that our `yarn gen` actually creates our custom hook creation
         4. Use the custom hooks in our components to fetch our data or make our modifications, as needed.
-
 3. Change the frontend with respect to a new query result, as a result of a mutation. 
     a. Is there a cached query we want to refresh on completion of the given resolver? For instance, we want `logout` to affect all of our frontend displays.
         1. Add a new cacheExchange in frontend/src/pages/_app.tsx, to store any new query results we want cached.
         
-
+When should we use server-side rendering?
+1. We want our page's data to show up on a google search
+    Why? Because if it's server-side rendered, then the client-side doesn't have anything to figure out, it's just served the finalized page, whereas a page that's not server-side rendering doesn't necessarily have its content persist after the client-side JS has its way with the page.    
+2. We have some data we need to show on our page (record data, etc.). For instance, a login page doesn't need to be server-side rendered, because it's a static page. Static pages do not require SSR.
 
 A note on using typescript to access deeply-nested data which may or may not be undefined:
 If we make a fetch returning to us 

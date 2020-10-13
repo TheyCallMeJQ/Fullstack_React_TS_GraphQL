@@ -3,11 +3,15 @@ import React from "react";
 import NextLink from "next/link";
 
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
+import { isServer } from "../utils/isServer";
 
 interface NavBarProps {}
 
 export const NavBar: React.FC<NavBarProps> = ({}) => {
-  const [{ data, fetching: meFetching }] = useMeQuery();
+  const [{ data, fetching: meFetching }] = useMeQuery({
+    // Don't run this query on the server
+    pause: isServer(),
+  });
   const [{ fetching: logoutFetching }, logout] = useLogoutMutation();
 
   let body = null;
