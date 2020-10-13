@@ -1900,9 +1900,157 @@ https://formidable.com/open-source/urql/docs/
                and to devDependencies
                 "@types/ioredis": "^4.17.5",
                 "@types/uuid": "^8.3.0",
-            iii. Remove `redis`, to be replaced by `ioredis`
- 
+            iii. Fix redis init in backend/src/index
+            import "reflect-metadata";
+            import { MikroORM } from "@mikro-orm/core";
+            import express from "express";
+            import { ApolloServer } from "apollo-server-express";
+            import { buildSchema } from "type-graphql";
 
+            import { COOKIE_NAME, __prod__ } from "./constants";
+            import microConfig from "./mikro-orm.config";
+
+            import { HelloResolver } from "./resolvers/hello";
+            import { PostResolver } from "./resolvers/post";
+            import { UserResolver } from "./resolvers/user";
+
+            import connectRedis from "connect-redis";
+            import Redis from "ioredis";
+            import session from "express-session";
+
+            import cors from "cors";
+            import { sendEmail } from "./utils/sendEmail";
+            import { User } from "./entities/User";
+
+            const main = async () => {
+            sendEmail("bob@bob.com", "<a>Hello there!</a>");
+
+            //Connect to MikroORM
+            const orm = await MikroORM.init(microConfig);
+            // Delete everything in User table
+            // await orm.em.nativeDelete(User, {})
+
+            // Find all entries in the User table to verify successful deletion
+            const users = await orm.em.find(User, {});
+            console.log("users", users);
+
+            //Run migrations
+            await orm.getMigrator().up();
+
+            const PORT = 4000;
+            const app = express();
+
+            const RedisStore = connectRedis(session);
+            //initialize redis client
+            const redis = new Redis();
+
+            app.use(
+                cors({
+                origin: "http://localhost:3000",
+                credentials: true,
+                })
+            );
+
+            app.use(
+                session({
+                name: COOKIE_NAME,
+                store: new RedisStore({ client: redis, disableTouch: true }),
+                cookie: {
+                    //No access to cookie from frontend
+                    httpOnly: true,
+                    //Set cookie lifespan to 10 years
+                    maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
+                    //Only work for https
+                    secure: __prod__,
+                    sameSite: "lax", //csrf
+                },
+                saveUninitialized: false,
+                secret: "hbfwelmxlzwjdcdllw",
+                resave: false,
+                })
+            );
+
+            const apolloServer = new ApolloServer({
+                schema: await buildSchema({
+                resolvers: [HelloResolver, PostResolver, UserResolver],
+                validate: false,
+                }),
+                context: ({ req, res }) => ({ em: orm.em, req, res, redis }),
+            });
+
+            apolloServer.applyMiddleware({
+                app,
+                cors: false,
+            });
+
+            app.listen(PORT, () => {
+                console.log(`Server listening on port ${PORT}`);
+            });
+            };
+
+            main().catch((e) => {
+            console.log(e);
+            });
+
+
+            iv. include redis in backend/src/types
+            import { EntityManager, IDatabaseDriver, Connection } from "@mikro-orm/core";
+            import { Request, Response } from "express";
+            import { Redis } from "ioredis";
+
+            export type MyContext = {
+                em: EntityManager<any> & EntityManager<IDatabaseDriver<Connection>>;
+                req: Request & { session: Express.Session };
+                res: Response;
+                redis: Redis;
+            };
+
+            v. Remove `redis` from backend packages
+
+            vi. Add the following resolver to UserResolver:'
+            @Mutation(() => Boolean)
+            async forgotPassword(
+                @Arg("email", () => String) email: string,
+                @Ctx() { em, redis }: MyContext
+            ) {
+                const user = await em.findOne(User, { email });
+                if (!user) return false;
+
+                const token = v4();
+                const key = FORGET_PASSWORD_PREFIX + token;
+                await redis.set(key, user.id, "ex", 1000 * 60 * 60 * 24 * 3); //expire in three days
+
+                const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
+                await sendEmail("bob@bob.com", htmlText);
+
+                return true;
+            }
+            The above can now be tested from localhost:4000/graphql. There should be a console log abut the message's success, and you can follow the link to see the actual message, which in turn will enable you to click the link and get to the change-password page, along wth a generated token.
+
+        6. Define change-password/[token].tsx     
+
+
+
+
+
+Okay, NextJS fun-fact time.
+- In nextJS, we can specify a page which is expected to receive some variables in the URL as follows: we define a new folder for the page name, with the variable names themselves enclosed in square brackets. So for instance, if we have a page called `change-password`, which is taking a parameter `token`, we have the following:
+/pages
+    /change-password
+        /[token].tsx
+    ...other pages  
+The change-password page could have the following definition:
+    // pages/change-password/[token].tsx
+        import { NextPage } from "next";
+        const ChangePassword: NextPage<{ token: string }> = ({ token }) => {
+            return <div>token is {token}</div>;
+        };
+
+        ChangePassword.getInitialProps = ({ query }) => ({
+        t   oken: query.token as string,
+        });
+
+        export default ChangePassword;
 
 
 So what's the flow for a new feature?

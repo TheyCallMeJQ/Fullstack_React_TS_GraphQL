@@ -11,10 +11,12 @@ import {
 import { EntityManager } from "@mikro-orm/postgresql";
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
-import { COOKIE_NAME } from "../constants";
+import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "../constants";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
 import validateRegister from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
+
+import { v4 } from "uuid";
 
 @ObjectType()
 class FieldError {
@@ -37,14 +39,17 @@ export class UserResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email", () => String) email: string,
-    @Ctx() { em }: MyContext
+    @Ctx() { em, redis }: MyContext
   ) {
     const user = await em.findOne(User, { email });
     if (!user) return false;
 
-    const token = "fuck you";
+    const token = v4();
+    const key = FORGET_PASSWORD_PREFIX + token;
+    await redis.set(key, user.id, "ex", 1000 * 60 * 60 * 24 * 3); //expire in three days
+
     const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
-    sendEmail("bob@bob.com", htmlText);
+    await sendEmail("bob@bob.com", htmlText);
 
     return true;
   }
