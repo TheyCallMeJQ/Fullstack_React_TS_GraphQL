@@ -1893,6 +1893,14 @@ https://formidable.com/open-source/urql/docs/
 
         4. Modify past user resolvers to take email into account, make changes to frontend register form.
         5. Add forgotPassword Mutation resolver to user resolvers.
+            i. Search for user from email, if any are found, send email with link to `change-password` page, with a generated token.
+            ii. Install to backend dependencies
+                "ioredis": "^4.17.3",
+                "uuid": "^8.3.1"
+               and to devDependencies
+                "@types/ioredis": "^4.17.5",
+                "@types/uuid": "^8.3.0",
+            iii. Remove `redis`, to be replaced by `ioredis`
  
 
 

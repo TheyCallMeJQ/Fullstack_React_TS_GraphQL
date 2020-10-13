@@ -20,12 +20,16 @@ const Login: React.FC<registerProps> = ({}) => {
       <Formik
         initialValues={{ usernameOrEmail: "", password: "" }}
         onSubmit={async (values, { setErrors }) => {
-          console.log("values", values);
-
           //return promise to end spinner on resolve
           const response = await login(values);
+          // console.log("response", response);
+          // console.log("errors", response.data?.login.errors);
+
           if (response.data?.login.errors) {
-            setErrors(toErrorMap(response.data.login.errors));
+            const map = toErrorMap(response.data?.login.errors);
+            // console.log("error map", map);
+
+            setErrors(map);
           } else if (response.data?.login.user) {
             //Redirect the user on successful registration
             router.push("/");

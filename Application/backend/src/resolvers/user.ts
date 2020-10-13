@@ -3,7 +3,6 @@ import {
   Arg,
   Ctx,
   Field,
-  InputType,
   Mutation,
   Query,
   ObjectType,
@@ -13,16 +12,9 @@ import { EntityManager } from "@mikro-orm/postgresql";
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
 import { COOKIE_NAME } from "../constants";
-
-@InputType()
-class UsernamePasswordInput {
-  @Field(() => String)
-  username: string;
-  @Field(() => String)
-  password: string;
-  @Field(() => String)
-  email: string;
-}
+import { UsernamePasswordInput } from "./UsernamePasswordInput";
+import validateRegister from "../utils/validateRegister";
+import { sendEmail } from "../utils/sendEmail";
 
 @ObjectType()
 class FieldError {
@@ -49,8 +41,10 @@ export class UserResolver {
   ) {
     const user = await em.findOne(User, { email });
     if (!user) return false;
-    console.log(`Found user with email ${email}\n`);
-    console.log(user);
+
+    const token = "fuck you";
+    const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
+    sendEmail("bob@bob.com", htmlText);
 
     return true;
   }
@@ -72,38 +66,9 @@ export class UserResolver {
     @Ctx() { em, req }: MyContext,
     @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
   ): Promise<UserResponse> {
-    //A primitive email validation check
-    if (!input.email.includes("@")) {
-      return {
-        errors: [
-          {
-            field: "email",
-            message: "Invalid email provided.",
-          },
-        ],
-      };
-    }
+    const errors = validateRegister(input);
+    if (errors) return { errors };
 
-    if (input.username.length <= 2) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: "Length of provided username must be greater than 2.",
-          },
-        ],
-      };
-    }
-    if (input.password.length <= 3) {
-      return {
-        errors: [
-          {
-            field: "password",
-            message: "Length of provided password must be greater than 3.",
-          },
-        ],
-      };
-    }
     const hashedPassword = await argon2.hash(input.password);
 
     try {
@@ -150,39 +115,6 @@ export class UserResolver {
     }
   }
 
-  // @Mutation(() => UserResponse)
-  // async login(
-  //   @Ctx() { em, req }: MyContext,
-  //   @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
-  // ): Promise<UserResponse> {
-  //   const user = await em.findOne(User, { username: input.username });
-  //   if (!user) {
-  //     return {
-  //       errors: [
-  //         {
-  //           field: "username",
-  //           message: "That username doesn't exist",
-  //         },
-  //       ],
-  //     };
-  //   }
-  //   const hashedPassword = user.password;
-  //   const isGoodPassword = await argon2.verify(hashedPassword, input.password);
-  //   if (!isGoodPassword) {
-  //     return {
-  //       errors: [
-  //         {
-  //           field: "password",
-  //           message: "That password is incorrect",
-  //         },
-  //       ],
-  //     };
-  //   }
-
-  //   req.session.userId = user.id;
-  //   return { user };
-  // }
-
   @Mutation(() => UserResponse)
   async login(
     @Ctx() { em, req }: MyContext,
@@ -197,7 +129,7 @@ export class UserResolver {
         return {
           errors: [
             {
-              field: "email",
+              field: "usernameOrEmail",
               message: "That email doesn't exist",
             },
           ],
@@ -210,7 +142,7 @@ export class UserResolver {
         return {
           errors: [
             {
-              field: "username",
+              field: "usernameOrEmail",
               message: "That username doesn't exist",
             },
           ],

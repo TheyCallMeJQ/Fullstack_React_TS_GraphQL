@@ -18,7 +18,7 @@ const Register: React.FC<registerProps> = ({}) => {
   return (
     <Wrapper variant="small">
       <Formik
-        initialValues={{ username: "", password: "" }}
+        initialValues={{ username: "", password: "", email: "" }}
         onSubmit={async (values, { setErrors }) => {
           //return promise to end spinner on resolve
           const response = await register({ input: values });
