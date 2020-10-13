@@ -150,24 +150,76 @@ export class UserResolver {
     }
   }
 
+  // @Mutation(() => UserResponse)
+  // async login(
+  //   @Ctx() { em, req }: MyContext,
+  //   @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
+  // ): Promise<UserResponse> {
+  //   const user = await em.findOne(User, { username: input.username });
+  //   if (!user) {
+  //     return {
+  //       errors: [
+  //         {
+  //           field: "username",
+  //           message: "That username doesn't exist",
+  //         },
+  //       ],
+  //     };
+  //   }
+  //   const hashedPassword = user.password;
+  //   const isGoodPassword = await argon2.verify(hashedPassword, input.password);
+  //   if (!isGoodPassword) {
+  //     return {
+  //       errors: [
+  //         {
+  //           field: "password",
+  //           message: "That password is incorrect",
+  //         },
+  //       ],
+  //     };
+  //   }
+
+  //   req.session.userId = user.id;
+  //   return { user };
+  // }
+
   @Mutation(() => UserResponse)
   async login(
     @Ctx() { em, req }: MyContext,
-    @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
+    @Arg("usernameOrEmail", () => String) usernameOrEmail: string,
+    @Arg("password", () => String) password: string
   ): Promise<UserResponse> {
-    const user = await em.findOne(User, { username: input.username });
-    if (!user) {
-      return {
-        errors: [
-          {
-            field: "username",
-            message: "That username doesn't exist",
-          },
-        ],
-      };
+    let user = null;
+    const isEmail = (arg: String) => arg.includes("@");
+    if (isEmail(usernameOrEmail)) {
+      user = await em.findOne(User, { email: usernameOrEmail });
+      if (!user) {
+        return {
+          errors: [
+            {
+              field: "email",
+              message: "That email doesn't exist",
+            },
+          ],
+        };
+      }
+    } else {
+      user = await em.findOne(User, { username: usernameOrEmail });
+      // const user = await em.findOne(User, { username: input.username });
+      if (!user) {
+        return {
+          errors: [
+            {
+              field: "username",
+              message: "That username doesn't exist",
+            },
+          ],
+        };
+      }
     }
+
     const hashedPassword = user.password;
-    const isGoodPassword = await argon2.verify(hashedPassword, input.password);
+    const isGoodPassword = await argon2.verify(hashedPassword, password);
     if (!isGoodPassword) {
       return {
         errors: [
