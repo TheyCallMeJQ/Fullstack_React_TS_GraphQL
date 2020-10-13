@@ -40,6 +40,19 @@ class UserResponse {
 
 @Resolver()
 export class UserResolver {
+  @Mutation(() => Boolean)
+  async forgotPassword(
+    @Arg("email", () => String) email: string,
+    @Ctx() { em }: MyContext
+  ) {
+    const user = await em.findOne(User, { email });
+    if (!user) return false;
+    console.log(`Found user with email ${email}\n`);
+    console.log(user);
+
+    return true;
+  }
+
   /**
    * Return the user associated with the id on the current session.
    */

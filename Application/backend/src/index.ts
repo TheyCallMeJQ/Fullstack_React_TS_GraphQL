@@ -16,10 +16,21 @@ import redis from "redis";
 import session from "express-session";
 
 import cors from "cors";
+import { sendEmail } from "./utils/sendEmail";
+import { User } from "./entities/User";
 
 const main = async () => {
+  sendEmail("bob@bob.com", "<a>Hello there!</a>");
+
   //Connect to MikroORM
   const orm = await MikroORM.init(microConfig);
+  // Delete everything in User table
+  // await orm.em.nativeDelete(User, {})
+
+  // Find all entries in the User table to verify successful deletion
+  // const users = await orm.em.find(User, {});
+  // console.log("users", users);
+
   //Run migrations
   await orm.getMigrator().up();
 

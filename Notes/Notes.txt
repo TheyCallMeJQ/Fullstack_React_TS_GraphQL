@@ -1731,6 +1731,170 @@ https://formidable.com/open-source/urql/docs/
 
         export default withUrqlClient(createUrqlClient, {ssr: true})(Index);
 
+15. Setting up forgot password (http://nodemailer.com/about/)
+    a. add: 
+        to backend dependencies:
+            "nodemailer": "^6.4.13",
+        to backend devDependencies
+            "@types/nodemailer": "^6.4.0",    
+    b. create backend/src/util/sendEmail.ts, copied mostly from nodemailer docs
+        import nodemailer from "nodemailer";
+
+        // async..await is not allowed in global scope, must use a wrapper
+        export async function sendEmail(to: string, text: string) {
+            // Generate test SMTP service account from ethereal.email
+            // Only needed if you don't have a real mail account for testing
+            let testAccount = await nodemailer.createTestAccount();
+            console.log("testAccount", testAccount);
+
+            // create reusable transporter object using the default SMTP transport
+            let transporter = nodemailer.createTransport({
+                host: "smtp.ethereal.email",
+                port: 587,
+                secure: false, // true for 465, false for other ports
+                auth: {
+                    user: testAccount.user, // generated ethereal user
+                    pass: testAccount.pass, // generated ethereal password
+                },
+            });
+
+            // send mail with defined transport object
+            let info = await transporter.sendMail({
+                from: '"Fred Foo 👻" <foo@example.com>', // sender address
+                to, // list of receivers
+                subject: "Hello ✔", // Subject line
+                text, // plain text body
+            });
+
+            console.log("Message sent: %s", info.messageId);
+            // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+
+            // Preview only available when sending through an Ethereal account
+            console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+            // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+        }
+    c. Execute the sendEmail function once in our backend index, copy the credentials, and then remove the lines of code creating the account on each execution.
+        1. Add the sendEmail invocation to backend/src/index:
+            // backend/src/index.ts
+            //...other imports
+            import { sendEmail } from "./utils/sendEmail";
+
+            const main = async () => {
+                sendEmail("bob@bob.com", "Hello there!");
+                //...other things
+            }
+        You'll get something like the following as output to the console:
+            Server listening on port 4000
+            testAccount {
+                user: 'qwxjb2opgka7rxid@ethereal.email',
+                pass: 'Hpsny21p9VqW8daKBR',
+                smtp: { host: 'smtp.ethereal.email', port: 587, secure: false },
+                imap: { host: 'imap.ethereal.email', port: 993, secure: true },
+                pop3: { host: 'pop3.ethereal.email', port: 995, secure: true },
+                web: 'https://ethereal.email'
+            }
+            Message sent: <a512ed48-f665-e63f-606e-f9732feebc8a@example.com>
+            Preview URL: https://ethereal.email/message/X4YBIdiVZjXHiPCDX4YBIz.pZXd6tXYtAAAAAQ9S-YAE5wn4lm9QPwMt8cI
+
+        2. Copy-paste the `user` and `pass` fields into the sendEmail function, as follows. Also, uncomment the first lines of code, in which a new nodemailer account is created.
+            import nodemailer from "nodemailer";
+
+            // async..await is not allowed in global scope, must use a wrapper
+            export async function sendEmail(to: string, text: string) {
+                // Generate test SMTP service account from ethereal.email
+                // Only needed if you don't have a real mail account for testing
+                //   let testAccount = await nodemailer.createTestAccount();
+                //   console.log("testAccount", testAccount);
+
+                // create reusable transporter object using the default SMTP transport
+                let transporter = nodemailer.createTransport({
+                    host: "smtp.ethereal.email",
+                    port: 587,
+                    secure: false, // true for 465, false for other ports
+                    auth: {
+                        user: "qwxjb2opgka7rxid@ethereal.email", // generated ethereal user
+                        pass: "Hpsny21p9VqW8daKBR", // generated ethereal password
+                    },
+                });
+
+                // send mail with defined transport object
+                let info = await transporter.sendMail({
+                    from: '"Fred Foo 👻" <foo@example.com>', // sender address
+                    to, // list of receivers
+                    subject: "Hello ✔", // Subject line
+                    text, // plain text body
+                });
+
+                console.log("Message sent: %s", info.messageId);
+                // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+
+                // Preview only available when sending through an Ethereal account
+                console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+                // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+            }
+
+        3. Add `email` field to User entity, and create new migration.
+            //new backend/src/entities/User.ts:
+            import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+            import { Field, Int, ObjectType } from "type-graphql";
+
+            @ObjectType()
+            @Entity()
+            export class User {
+                @Field(() => Int)
+                @PrimaryKey()
+                id!: number;
+
+                @Field(() => String)
+                @Property({ type: "date" })
+                createdAt = new Date();
+
+                @Field(() => String)
+                @Property({ type: "date", onUpdate: () => new Date() })
+                updatedAt = new Date();
+
+                @Field(() => String)
+                @Property({ type: "text", unique: true })
+                username!: string;
+
+                @Field(() => String)
+                @Property({ type: "text", unique: true })
+                email!: string;
+
+                @Property({ type: "text" })
+                password!: string;
+            }
+
+            //in bckend terminal, 
+            $ yarn create:migration
+
+            Verify the successful new migration by checking the backend/src/migrations folder.
+            You may get an error after this, if you have any newly created users with no email (or rather with an email field set to null), you may need to wipe your table. We do this with an em.nativeDelete:
+
+            // backend/src/index
+            // ...other imports
+            import { User } from "./entities/User";
+
+            const main = async () => {
+                sendEmail("bob@bob.com", "<a>Hello there!</a>");
+
+                //Connect to MikroORM
+                const orm = await MikroORM.init(microConfig);
+                // Delete everything in User table
+                // await orm.em.nativeDelete(User, {})
+
+                // Find all entries in the User table to verify successful deletion
+                // const users = await orm.em.find(User, {});
+                // console.log("users", users);
+                
+                //... other main things
+            }
+            By the way, we can also solve the issue of having entries with a null value for the email by adding nullable: true on the User entity, for the email field.
+
+        4. (optional) modify past user resolvers to take email into account.
+        4. Add forgotPassword Mutation resolver to user resolvers.
+ 
+
 
 
 So what's the flow for a new feature?
@@ -1739,6 +1903,9 @@ So what's the flow for a new feature?
     a. Do we need a new data type? If so...
         1. Create a new entity (backend/src/entities)
         2. Add the new entity to the list of imports in backend/src/mikro-orm.config.ts
+        3. run command `yarn create:migration`, AKA
+            // backend/package.json
+            "create:migration": "mikro-orm migration:create"
     b. Do we need a new resolvers class for our new entity? If so...
         1. Create a new resolver class (backend/src/resolvers)
         2. Add the new resolver to the list of imports in backend/src/index.ts
@@ -1750,7 +1917,8 @@ So what's the flow for a new feature?
 3. Change the frontend with respect to a new query result, as a result of a mutation. 
     a. Is there a cached query we want to refresh on completion of the given resolver? For instance, we want `logout` to affect all of our frontend displays.
         1. Add a new cacheExchange in frontend/src/pages/_app.tsx, to store any new query results we want cached.
-        
+
+
 When should we use server-side rendering?
 1. We want our page's data to show up on a google search
     Why? Because if it's server-side rendered, then the client-side doesn't have anything to figure out, it's just served the finalized page, whereas a page that's not server-side rendering doesn't necessarily have its content persist after the client-side JS has its way with the page.    
