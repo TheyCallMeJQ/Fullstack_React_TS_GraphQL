@@ -20,6 +20,8 @@ class UsernamePasswordInput {
   username: string;
   @Field(() => String)
   password: string;
+  @Field(() => String)
+  email: string;
 }
 
 @ObjectType()
@@ -70,6 +72,18 @@ export class UserResolver {
     @Ctx() { em, req }: MyContext,
     @Arg("input", () => UsernamePasswordInput) input: UsernamePasswordInput
   ): Promise<UserResponse> {
+    //A primitive email validation check
+    if (!input.email.includes("@")) {
+      return {
+        errors: [
+          {
+            field: "email",
+            message: "Invalid email provided.",
+          },
+        ],
+      };
+    }
+
     if (input.username.length <= 2) {
       return {
         errors: [
@@ -99,6 +113,7 @@ export class UserResolver {
         .insert({
           username: input.username,
           password: hashedPassword,
+          email: input.email,
           created_at: new Date(),
           updated_at: new Date(),
         })
@@ -113,7 +128,7 @@ export class UserResolver {
     } catch (err) {
       console.log("message", err.message);
       if (err.code === "23505" || err.detail.includes("already exists")) {
-        em.clear();
+        // em.clear();
         //duplicate username error
         return {
           errors: [

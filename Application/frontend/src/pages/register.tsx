@@ -38,6 +38,9 @@ const Register: React.FC<registerProps> = ({}) => {
               name="username"
             />
             <Box mt={4}>
+              <InputField label="Email" placeholder="email" name="email" />
+            </Box>
+            <Box mt={4}>
               <InputField
                 label="Password"
                 placeholder="password"

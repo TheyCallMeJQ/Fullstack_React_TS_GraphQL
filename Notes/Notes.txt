@@ -1891,8 +1891,8 @@ https://formidable.com/open-source/urql/docs/
             }
             By the way, we can also solve the issue of having entries with a null value for the email by adding nullable: true on the User entity, for the email field.
 
-        4. (optional) modify past user resolvers to take email into account.
-        4. Add forgotPassword Mutation resolver to user resolvers.
+        4. Modify past user resolvers to take email into account, make changes to frontend register form.
+        5. Add forgotPassword Mutation resolver to user resolvers.
  
 
 

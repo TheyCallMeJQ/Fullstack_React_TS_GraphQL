@@ -17,7 +17,7 @@ import session from "express-session";
 
 import cors from "cors";
 import { sendEmail } from "./utils/sendEmail";
-import { User } from "./entities/User";
+// import { User } from "./entities/User";
 
 const main = async () => {
   sendEmail("bob@bob.com", "<a>Hello there!</a>");
