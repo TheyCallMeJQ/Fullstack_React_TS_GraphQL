@@ -1684,11 +1684,35 @@ https://formidable.com/open-source/urql/docs/
     And this way, it doesn't matter if we add new data fields to our User data type, we're stil golden.
 
 
+13. Implement logout.
+    a. Define new user mutation in backend.
+        i. Remove user id from req
+        ii. Test query on localhost:4000/graphql, at need.
+    b. Define GraphQL mutation in frontend.
+    c. Define new cacheExchange to update the cached result of the 'me' query.
+    d. `yarn gen`, to create custom hooks
+    e. Use custom hooks in the frontend (for instance, on our NavBar component)
 
 
+So what's the flow for a new feature?
+1. Map out the frontend, see how we want our data
+2. Make changes to the backend data:
+    a. Do we need a new data type? If so...
+        1. Create a new entity (backend/src/entities)
+        2. Add the new entity to the list of imports in backend/src/mikro-orm.config.ts
+    b. Do we need a new resolvers class for our new entity? If so...
+        1. Create a new resolver class (backend/src/resolvers)
+        2. Add the new resolver to the list of imports in backend/src/index.ts
+    c. Do we need new resolvers?
+        1. Add the new resolvers to our respective resolvers class file
+        2. Test the resolvers on http://localhost:4000/graphql
+        3. Create a graphql file in frontend/src/graphql/(mutations|queries|whatever) so that our `yarn gen` actually creates our custom hook creation
+        4. Use the custom hooks in our components to fetch our data or make our modifications, as needed.
 
-
-
+3. Change the frontend with respect to a new query result, as a result of a mutation. 
+    a. Is there a cached query we want to refresh on completion of the given resolver? For instance, we want `logout` to affect all of our frontend displays.
+        1. Add a new cacheExchange in frontend/src/pages/_app.tsx, to store any new query results we want cached.
+        
 
 
 A note on using typescript to access deeply-nested data which may or may not be undefined:
