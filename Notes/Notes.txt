@@ -2007,7 +2007,9 @@ https://formidable.com/open-source/urql/docs/
 
             v. Remove `redis` from backend packages
 
-            vi. Add the following resolver to UserResolver:'
+            vi. Add the following resolvers to UserResolver:'
+            
+            //forgotPassword
             @Mutation(() => Boolean)
             async forgotPassword(
                 @Arg("email", () => String) email: string,
@@ -2027,7 +2029,224 @@ https://formidable.com/open-source/urql/docs/
             }
             The above can now be tested from localhost:4000/graphql. There should be a console log abut the message's success, and you can follow the link to see the actual message, which in turn will enable you to click the link and get to the change-password page, along wth a generated token.
 
-        6. Define change-password/[token].tsx     
+            // changePassword   
+
+            @Mutation(() => UserResponse)
+            async changePassword(
+                @Arg("token", () => String) token: string,
+                @Arg("newPassword", () => String) newPassword: string,
+                @Ctx() { em, redis, req }: MyContext
+            ): Promise<UserResponse> {
+                if (newPassword.length <= 3) {
+                return {
+                    errors: [
+                    {
+                        field: "newPassword",
+                        message: "Length of provided password must be greater than 3.",
+                    },
+                    ],
+                };
+                }
+
+                const key = FORGET_PASSWORD_PREFIX + token;
+                const id = await redis.get(key);
+                if (!id) {
+                return {
+                    errors: [
+                    {
+                        field: "token",
+                        message: "Token expired.",
+                    },
+                    ],
+                };
+                }
+                const user = await em.findOne(User, { id: parseInt(id) });
+                if (!user) {
+                return {
+                    errors: [{ field: "user", message: "No user found for provided id" }],
+                };
+                }
+
+                //Change the user's password
+                user.password = await argon2.hash(newPassword);
+                await em.persistAndFlush(user);
+
+                //Destroy token on password reset
+                await redis.del(key);
+
+                //Login the user after password change
+                req.session.userId = user.id;
+
+                return { user };
+            } 
+
+            So the flow in the above is to toggle the forgotPassword resolver, which sends an email to the user, they click the link in the email, get taken to the change-password page, along with a token. This token is single-use and valid for at most three days. After the user changes their password, their token is invalidated and they are taken to home page.
+
+        6. Define frontend graphql files, frontend/src/graphql/mutations:
+        - changePassword.graphql
+        mutation ChangePassword($newPassword: String!, $token: String!) {
+            changePassword(newPassword: $newPassword, token: $token) {
+                user {
+                id
+                username
+                }
+                errors {
+                field
+                message
+                }
+            }
+        }
+
+        - forgotPassword.graphql
+        mutation ForgotPassword($email: String!) {
+            forgotPassword(email: $email)
+        }
+
+        Do a `yarn gen` to generate our custom hooks.
+
+        6. Define frontend forgot-password.tsx
+            import React from "react";
+            import { createUrqlClient } from "../utils/createUrqlClient";
+            import { withUrqlClient } from "next-urql";
+            import { Box, Button } from "@chakra-ui/core";
+            import { Formik, Form } from "formik";
+            import { InputField } from "../components/InputField";
+            import { Wrapper } from "../components/Wrapper";
+
+            import { useForgotPasswordMutation } from "../generated/graphql";
+            import { useState } from "react";
+
+            const ForgotPassword: React.FC<{}> = ({}) => {
+                const [isComplete, setIsComplete] = useState(false);
+                const [, forgotPassword] = useForgotPasswordMutation();
+                return (
+                    <Wrapper variant="small">
+                    <Formik
+                        initialValues={{ email: "" }}
+                        onSubmit={async (values, { setErrors }) => {
+                        //return promise to end spinner on resolve
+                        const response = await forgotPassword({ email: values.email });
+                        console.log("response", response);
+
+                        setIsComplete(true);
+                        }}
+                    >
+                        {({ isSubmitting }) =>
+                        isComplete ? (
+                            <Box>Email sent</Box>
+                        ) : (
+                            <Form>
+                            <InputField
+                                label="Email"
+                                placeholder="email"
+                                name="email"
+                                type="email"
+                            />
+                            <Button
+                                mt={1}
+                                isLoading={isSubmitting}
+                                type="submit"
+                                variantColor="teal"
+                            >
+                                Send reset password email
+                            </Button>
+                            </Form>
+                        )
+                        }
+                    </Formik>
+                    </Wrapper>
+                );
+            };
+
+        export default withUrqlClient(createUrqlClient, { ssr: true })(ForgotPassword);
+
+        6. Define frontend page change-password/[token].tsx
+
+        import { Box, Button, Link as ChakraLink } from "@chakra-ui/core";
+        import { Formik, Form } from "formik";
+        import { NextPage } from "next";
+        import React, { useState } from "react";
+        import { InputField } from "../../components/InputField";
+        import { Wrapper } from "../../components/Wrapper";
+        import { useRouter } from "next/router";
+
+        import { withUrqlClient } from "next-urql";
+        import { useChangePasswordMutation } from "../../generated/graphql";
+        import { toErrorMap } from "../../utils/toErrorMap";
+        import { createUrqlClient } from "../../utils/createUrqlClient";
+        import NextLink from "next/link";
+
+        const ChangePassword: NextPage<{ token: string }> = ({ token }) => {
+            const [tokenError, setTokenError] = useState("");
+            const [, changePassword] = useChangePasswordMutation();
+            const router = useRouter();
+            console.log("tokenError", tokenError);
+            return (
+                <Wrapper variant="small">
+                <Formik
+                    initialValues={{ newPassword: "" }}
+                    onSubmit={async (values, { setErrors }) => {
+                        //return promise to end spinner on resolve
+                        const response = await changePassword({
+                            ...values,
+                            token,
+                        });
+                        console.log("response", response);
+
+                        if (response.data?.changePassword.errors) {
+                            const errorMap = toErrorMap(response.data?.changePassword.errors);
+                            if ("token" in errorMap) {
+                                const errMsg = errorMap.token;
+                                setTokenError(errMsg);
+                            }
+                            setErrors(errorMap);
+                        } else if (response.data?.changePassword.user) {
+                            setTokenError("");
+                            //Redirect the user to home on successful password change
+                            router.push("/");
+                        }
+                    }}
+                >
+                    {({ isSubmitting }) => (
+                    <Form>
+                        <Box mt={4}>
+                        <InputField
+                            label="New password"
+                            placeholder="new password"
+                            name="newPassword"
+                            type="password"
+                        />
+                        </Box>
+                        {tokenError && (
+                            <Box>
+                                <Box style={{ color: "red" }}>{tokenError}</Box>
+                                <NextLink href="/forgot-password">
+                                <ChakraLink>Forget password again</ChakraLink>
+                                </NextLink>
+                            </Box>
+                        )}
+                        <Button
+                            mt={4}
+                            isLoading={isSubmitting}
+                            type="submit"
+                            variantColor="teal"
+                        >
+                        Change password
+                        </Button>
+                    </Form>
+                    )}
+                </Formik>
+                </Wrapper>
+            );
+        };
+
+        ChangePassword.getInitialProps = ({ query }) => ({
+            token: query.token as string,
+        });
+
+        export default withUrqlClient(createUrqlClient, { ssr: true })(ChangePassword);
+
+    
 
 
 
