@@ -2446,11 +2446,31 @@ https://formidable.com/open-source/urql/docs/
             ]
         }    
 
+20. Prevent the user from having their content lost on create-post page.
+    a. Define `useIsAuth` hook. Its function? To redirect the user on insufficient access credentials.
+    //frontend/src/utils/useIsAuth
+        import { useEffect } from "react";
+        import { useMeQuery } from "../generated/graphql";
+        import { useRouter } from "next/router";
+
+        export const useIsAuth = () => {
+            const router = useRouter();
+            const [{ data, fetching }] = useMeQuery();
+            //Redirect user to login on page access without user credentials
+            useEffect(() => {
+                if (!data?.me && !fetching) {
+                    router.push("/login");
+                }
+            }, [data, fetching]);
+        };
+    b. Add to create-post page    
+
+
+
+
 How to wipe a db table using typeorm:
 - in our connection config, set synchronize to `false`
 - await [EntityName].delete({})
-
-
 
 What does it give us to extend BaseEntity when we're defining our entities for use with typeorm? When we extend BaseEntity, it gives us access to some easy db ops for our data types, so for instance, we could say 
 
