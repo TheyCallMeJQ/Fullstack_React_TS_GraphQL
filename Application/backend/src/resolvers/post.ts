@@ -5,6 +5,7 @@ import {
   Ctx,
   Field,
   InputType,
+  Int,
   Mutation,
   Query,
   Resolver,
@@ -26,17 +27,23 @@ class PostInput {
 export class PostResolver {
   @Query(() => [Post])
   posts(
-    @Arg("limit", () => Number) limit: number,
+    @Arg("limit", () => Int) limit: number,
     @Arg("cursor", () => String, { nullable: true }) cursor: string | null
   ): Promise<Post[]> {
     //Cap it at 50 per page, no matter what the frontend says.
     const realLimit = Math.min(50, limit);
-    return getConnection()
+    const qb = getConnection()
       .getRepository(Post)
       .createQueryBuilder("p")
       .orderBy('"createdAt"', "DESC")
-      .take(realLimit)
-      .getMany();
+      .take(realLimit);
+    //if I have a 'createdAt' timestamp cursor, return to me the most recent post since the cursor post
+    if (cursor) {
+      qb.where('"createdAt" < :cursor', {
+        cursor: new Date(parseInt(cursor)),
+      });
+    }
+    return qb.getMany();
   }
 
   @Query(() => Post, { nullable: true })

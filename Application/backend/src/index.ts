@@ -31,8 +31,8 @@ const main = async () => {
     entities: [User, Post],
   });
 
-  const users = await User.find();
-  console.log("Users", users);
+  const Posts = await Post.find();
+  console.log("Posts", Posts);
 
   const PORT = 4000;
   const app = express();
