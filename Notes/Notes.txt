@@ -2467,6 +2467,30 @@ https://formidable.com/open-source/urql/docs/
 
 21. Paginate our posts
     a. Modify our posts resolver in backend (https://typeorm.io/#/select-query-builder)
+    //backend/src/resolvers/post
+        @Query(() => [Post])
+        posts(
+            @Arg("limit", () => Int) limit: number,
+            @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+        ): Promise<Post[]> {
+            //Cap it at 50 per page, no matter what the frontend says.
+            const realLimit = Math.min(50, limit);
+            const qb = getConnection()
+                .getRepository(Post)
+                .createQueryBuilder("p")
+                .orderBy('"createdAt"', "DESC")
+                .take(realLimit);
+            //if I have a 'createdAt' timestamp cursor, return to me the most recent post since the cursor post
+            if (cursor) {
+                qb.where('"createdAt" < :cursor', {
+                    cursor: new Date(parseInt(cursor)),
+                });
+            }
+            return qb.getMany();
+        }
+    b. Test on GraphQL playground
+    c. Make adjustments to frontend
+    d. Use mockaroo to generate some test data
 
 
 How to wipe a db table using typeorm:
