@@ -35,30 +35,6 @@ export const createUrqlClient = (ssrExchange: any) => ({
     cacheExchange({
       updates: {
         Mutation: {
-          //Not doing this properly
-          // createPost: (result, args, cache, info) => {
-          //   betterUpdateQuery<CreatePostMutation, PostsQuery>(
-          //     cache,
-          //     { query: PostsDocument },
-          //     result,
-          //     (newQueryResult, lastQueryResult) => {
-          //       console.log("new query result", newQueryResult);
-          //       console.log("last query result", lastQueryResult);
-          //       let posts = [] as any;
-          //       if (lastQueryResult) {
-          //         posts = lastQueryResult.posts;
-          //       }
-          //       posts.concat({
-          //         ...newQueryResult.createPost,
-          //       });
-          //       console.log("posts", posts);
-
-          //       return {
-          //         posts,
-          //       };
-          //     }
-          //   );
-          // },
           logout: (result, args, cache, info) => {
             betterUpdateQuery<LogoutMutation, MeQuery>(
               cache,

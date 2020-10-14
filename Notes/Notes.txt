@@ -2465,7 +2465,8 @@ https://formidable.com/open-source/urql/docs/
         };
     b. Add to create-post page    
 
-
+21. Paginate our posts
+    a. Modify our posts resolver in backend (https://typeorm.io/#/select-query-builder)
 
 
 How to wipe a db table using typeorm:
