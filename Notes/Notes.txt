@@ -2250,11 +2250,21 @@ https://formidable.com/open-source/urql/docs/
     a. to backend dependencies add
         "typeorm": "^0.2.28",
     b. Create typeorm connection in backend/src/index.
+
     c. Add appropriate typeorm decorators to entity classes.    
 
 
 
+What does it give us to extend BaseEntity when we're defining our entities for use with typeorm? When we extend BaseEntity, it gives us access to some easy db ops for our data types, so for instance, we could say 
 
+@ObjectType()
+@Entity()
+export class Post extends BaseEntity {
+    //...
+}
+Now we can just say
+    Post.insert({...})
+directly!
 
 Okay, NextJS fun-fact time.
 - In nextJS, we can specify a page which is expected to receive some variables in the URL as follows: we define a new folder for the page name, with the variable names themselves enclosed in square brackets. So for instance, if we have a page called `change-password`, which is taking a parameter `token`, we have the following:

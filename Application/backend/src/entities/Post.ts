@@ -5,12 +5,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  BaseEntity,
 } from "typeorm";
 import { Field, Int, ObjectType } from "type-graphql";
 
 @ObjectType()
 @Entity()
-export class Post {
+export class Post extends BaseEntity {
   @Field(() => Int)
   @PrimaryGeneratedColumn()
   id!: number;
