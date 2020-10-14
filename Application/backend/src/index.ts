@@ -20,7 +20,7 @@ import { createConnection } from "typeorm";
 import { Post } from "./entities/Post";
 
 const main = async () => {
-  const connection = await createConnection({
+  await createConnection({
     type: "postgres",
     database: "lireddit2",
     username: "postgres",
@@ -30,6 +30,9 @@ const main = async () => {
     synchronize: true,
     entities: [User, Post],
   });
+
+  const users = await User.find();
+  console.log("Users", users);
 
   const PORT = 4000;
   const app = express();

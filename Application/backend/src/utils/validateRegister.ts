@@ -11,19 +11,19 @@ export default function validateRegister(input: UsernamePasswordInput) {
     ];
   }
 
-  if (input.username.length <= 2) {
+  if (input.username.length <= 1) {
     return [
       {
         field: "username",
-        message: "Length of provided username must be greater than 2.",
+        message: "Length of provided username must be greater than 1.",
       },
     ];
   }
-  if (input.password.length <= 3) {
+  if (input.password.length <= 1) {
     return [
       {
         field: "password",
-        message: "Length of provided password must be greater than 3.",
+        message: "Length of provided password must be greater than 1.",
       },
     ];
   }

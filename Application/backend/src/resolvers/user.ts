@@ -16,7 +16,6 @@ import validateRegister from "../utils/validateRegister";
 import { sendEmail } from "../utils/sendEmail";
 
 import { v4 } from "uuid";
-import { getConnection } from "typeorm";
 
 @ObjectType()
 class FieldError {
@@ -49,7 +48,7 @@ export class UserResolver {
     await redis.set(key, user.id, "ex", 1000 * 60 * 60 * 24 * 3); //expire in three days
 
     const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
-    await sendEmail("bob@bob.com", htmlText);
+    await sendEmail(email, htmlText);
 
     return true;
   }
@@ -60,12 +59,12 @@ export class UserResolver {
     @Arg("newPassword", () => String) newPassword: string,
     @Ctx() { redis, req }: MyContext
   ): Promise<UserResponse> {
-    if (newPassword.length <= 3) {
+    if (newPassword.length <= 1) {
       return {
         errors: [
           {
             field: "newPassword",
-            message: "Length of provided password must be greater than 3.",
+            message: "Length of provided password must be greater than 1.",
           },
         ],
       };
@@ -129,20 +128,13 @@ export class UserResolver {
     const hashedPassword = await argon2.hash(input.password);
 
     try {
-      const result = await getConnection()
-        .createQueryBuilder()
-        .insert()
-        .into(User)
-        .values({
-          username: input.username,
-          email: input.email,
-          password: hashedPassword,
-        })
-        .returning("*")
-        .execute();
-      console.log("result", result);
+      const { username, email } = input;
+      const user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+      }).save();
 
-      let user = result.raw;
       //Store user ID on session
       //This will add a cookie on the session
       //Keep the user logged in
@@ -152,13 +144,13 @@ export class UserResolver {
     } catch (err) {
       console.log("register: error", err);
       if (err.code === "23505" || err.detail.includes("already exists")) {
-        // em.clear();
+        const field = err.detail.includes("username") ? "username" : "email";
         //duplicate username error
         return {
           errors: [
             {
-              message: "This username already exists",
-              field: "username",
+              message: `This ${field} already exists`,
+              field,
             },
           ],
         };
