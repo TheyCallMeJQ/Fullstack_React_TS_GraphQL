@@ -2250,20 +2250,134 @@ https://formidable.com/open-source/urql/docs/
     a. to backend dependencies add
         "typeorm": "^0.2.28",
     b. Create typeorm connection in backend/src/index.
+        await createConnection({
+            type: "postgres",
+            database: "lireddit2",
+            username: "postgres",
+            password: "postgres",
+            logging: true,
+            //automatically perform migrations
+            synchronize: true,
+            entities: [User, Post],
+        });
 
-    c. Add appropriate typeorm decorators to entity classes.  
+        //(OPTIONAL) See all users in db
+        const users = await User.find();
+        console.log("Users", users);
+
+    c. Add appropriate typeorm decorators to entity classes, and make all entity classes extend BaseEntity (IMPORTANT).
+
+    //entities/User
+    import {
+        BaseEntity,
+        Column,
+        CreateDateColumn,
+        Entity,
+        PrimaryGeneratedColumn,
+        UpdateDateColumn,
+    } from "typeorm";
+    import { Field, Int, ObjectType } from "type-graphql";
+
+    @ObjectType()
+    @Entity()
+    export class User extends BaseEntity {
+        @Field(() => Int)
+        @PrimaryGeneratedColumn()
+        id!: number;
+
+        @Field(() => String)
+        @CreateDateColumn()
+        createdAt: Date;
+
+        @Field(() => String)
+        @UpdateDateColumn()
+        updatedAt: Date;
+
+        @Field(() => String)
+        @Column({ unique: true })
+        username!: string;
+
+        @Field(() => String)
+        @Column({ unique: true })
+        email!: string;
+
+        @Column()
+        password!: string;
+    }
+
+    //entities/Post
+    import {
+        Entity,
+        PrimaryGeneratedColumn,
+        Column,
+        CreateDateColumn,
+        UpdateDateColumn,
+        BaseEntity,
+    } from "typeorm";
+    import { Field, Int, ObjectType } from "type-graphql";
+
+    @ObjectType()
+    @Entity()
+    export class Post extends BaseEntity {
+        @Field(() => Int)
+        @PrimaryGeneratedColumn()
+        id!: number;
+
+        @Field(() => String)
+        @CreateDateColumn()
+        createdAt: Date;
+
+        @Field(() => String)
+        @UpdateDateColumn()
+        updatedAt: Date;
+
+        @Field(() => String)
+        @Column()
+        title!: string;
+    }
 
     d. Make changes to types file, where context is defined.
+    //backend/src/types.ts
+        import { Request, Response } from "express";
+        import { Redis } from "ioredis";
+
+        export type MyContext = {
+            req: Request & { session: Express.Session };
+            res: Response;
+            redis: Redis;
+        };
 
     e. Remove `em` from all resolvers and reimplement them using typeorm syntax.
+    //For instance, in backend/src/resolvers/user:
+    @Mutation(() => Boolean)
+    async forgotPassword(
+        @Arg("email", () => String) email: string,
+        @Ctx() { redis }: MyContext
+    ) {
+        const user = await User.findOne({ where: { email } });
+        if (!user) return false;
+
+        const token = v4();
+        const key = FORGET_PASSWORD_PREFIX + token;
+        await redis.set(key, user.id, "ex", 1000 * 60 * 60 * 24 * 3); //expire in three days
+
+        const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
+        await sendEmail(email, htmlText);
+
+        return true;
+    }
 
     f. Ensure there is no trace of `mikro` anywhere in our project, to complete our transition to typeorm.
 
-    g. Create a new db via `createdb [dbname]`
+    g. Create a new db via `createdb [dbname]` (we're going with the classic 'lireddit2')
 
-    h. 
+    h. Test our resolvers via localhost:4000/graphql
 
-
+    i. remove all mikro-orm devDependencies
+        "@mikro-orm/cli": "^4.0.7",
+        "@mikro-orm/core": "^4.0.7",
+        "@mikro-orm/migrations": "^4.0.7",
+        "@mikro-orm/postgresql": "^4.0.7",
 
 
 What does it give us to extend BaseEntity when we're defining our entities for use with typeorm? When we extend BaseEntity, it gives us access to some easy db ops for our data types, so for instance, we could say 
