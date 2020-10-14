@@ -2379,6 +2379,16 @@ https://formidable.com/open-source/urql/docs/
         "@mikro-orm/migrations": "^4.0.7",
         "@mikro-orm/postgresql": "^4.0.7",
 
+    j. remove from package.json our mikroORM migrations script
+        //DELETE ME    
+        "create:migration": "mikro-orm migration:create"     
+
+    k. Delete mikro-orm.config.ts
+
+17. Creating a many-to-one relationship on our users, to keep track of their posts (docs: https://typeorm.io/#/many-to-one-one-to-many-relations)
+
+
+
 
 What does it give us to extend BaseEntity when we're defining our entities for use with typeorm? When we extend BaseEntity, it gives us access to some easy db ops for our data types, so for instance, we could say 
 

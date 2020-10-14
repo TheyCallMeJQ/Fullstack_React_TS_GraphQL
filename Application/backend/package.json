@@ -14,17 +14,12 @@
     "start:redis": "brew services start redis",
     "stop:redis": "brew services stop redis",
     "start:services": "brew services start postgresql && brew services start redis",
-    "stop:services": "brew services stop postgresql && brew services stop redis",
-    "create:migration": "mikro-orm migration:create"
+    "stop:services": "brew services stop postgresql && brew services stop redis"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@mikro-orm/cli": "^4.0.7",
-    "@mikro-orm/core": "^4.0.7",
-    "@mikro-orm/migrations": "^4.0.7",
-    "@mikro-orm/postgresql": "^4.0.7",
     "apollo-server-express": "^2.18.2",
     "argon2": "^0.27.0",
     "connect-redis": "^5.0.0",
