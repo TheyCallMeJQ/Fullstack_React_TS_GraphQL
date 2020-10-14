@@ -2389,6 +2389,11 @@ https://formidable.com/open-source/urql/docs/
 
 
 
+How to wipe a db table using typeorm:
+- in our connection config, set synchronize to `false`
+- await [EntityName].delete({})
+
+
 
 What does it give us to extend BaseEntity when we're defining our entities for use with typeorm? When we extend BaseEntity, it gives us access to some easy db ops for our data types, so for instance, we could say 
 
