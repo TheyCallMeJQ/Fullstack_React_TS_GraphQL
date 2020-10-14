@@ -2251,7 +2251,17 @@ https://formidable.com/open-source/urql/docs/
         "typeorm": "^0.2.28",
     b. Create typeorm connection in backend/src/index.
 
-    c. Add appropriate typeorm decorators to entity classes.    
+    c. Add appropriate typeorm decorators to entity classes.  
+
+    d. Make changes to types file, where context is defined.
+
+    e. Remove `em` from all resolvers and reimplement them using typeorm syntax.
+
+    f. Ensure there is no trace of `mikro` anywhere in our project, to complete our transition to typeorm.
+
+    g. Create a new db via `createdb [dbname]`
+
+    h.
 
 
 

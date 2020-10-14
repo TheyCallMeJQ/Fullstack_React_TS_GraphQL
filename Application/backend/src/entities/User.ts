@@ -1,5 +1,5 @@
-// import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 import {
+  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,

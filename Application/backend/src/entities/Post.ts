@@ -1,4 +1,3 @@
-// import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 import {
   Entity,
   PrimaryGeneratedColumn,
