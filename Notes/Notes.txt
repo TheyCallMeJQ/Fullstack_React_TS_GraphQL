@@ -2411,6 +2411,40 @@ https://formidable.com/open-source/urql/docs/
             return Post.create({ ...input, creatorId: req.session.userId }).save();
         }
 
+19. Create post
+    a. Define createPost resolver (using our isAuth middleware, as defined above)
+    b. Test the mutation on localhost:444/graphql
+    c. Create the graphql mutation in frontend/src/graphql/mutations/createPost.graphql
+    d. `yarn gen` to make us our custom hooks for use in frontend
+    e. Create `create-post` page.
+    f. Create global URQL error handler in `createUrqlClient`, using example from https://github.com/FormidableLabs/urql/issues/225
+        1. define new errorExchange
+        //frontend/src/utils/createUrqlClient
+        const errorExchange: Exchange = ({ forward }) => (ops$) => {
+            return pipe(
+                forward(ops$),
+                tap(({ error }) => {
+                    if (error?.message.includes("not authenticated")) {
+                        Router.replace("/login");
+                    }
+                })
+            );
+        };
+
+        2. add new errorExchange to the list of exchanges.
+        // frontend/src/utils/createUrqlClient
+        export const createUrqlClient = (ssrExchange: any) => ({
+            url: "http://localhost:4000/graphql",
+            fetchOptions: {
+                credentials: "include" as const,
+            },
+            exchanges: [
+                ...some exchanges...
+                errorExchange, 
+                ssrExchange,
+                fetchExchange,
+            ]
+        }    
 
 How to wipe a db table using typeorm:
 - in our connection config, set synchronize to `false`

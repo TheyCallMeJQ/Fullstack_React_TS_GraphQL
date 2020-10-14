@@ -11,7 +11,7 @@ import {
   UseMiddleware,
 } from "type-graphql";
 import { MyContext } from "src/types";
-import { isAuth } from "src/middlewares/isAuth";
+import { isAuth } from "../middlewares/isAuth";
 
 @InputType()
 class PostInput {
@@ -32,11 +32,6 @@ export class PostResolver {
   post(@Arg("id", () => Number) id: number): Promise<Post | undefined> {
     return Post.findOne(id);
   }
-
-  // @Mutation(() => Post)
-  // async createPost(@Arg("title", () => String) title: string): Promise<Post> {
-  //   return Post.create({ title }).save();
-  // }
 
   @Mutation(() => Post)
   @UseMiddleware(isAuth) //Disable create post functionality for users not signed in
