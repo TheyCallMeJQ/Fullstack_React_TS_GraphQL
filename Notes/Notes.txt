@@ -2104,7 +2104,7 @@ https://formidable.com/open-source/urql/docs/
 
         Do a `yarn gen` to generate our custom hooks.
 
-        6. Define frontend forgot-password.tsx
+        7. Define frontend forgot-password.tsx
             import React from "react";
             import { createUrqlClient } from "../utils/createUrqlClient";
             import { withUrqlClient } from "next-urql";
@@ -2160,7 +2160,7 @@ https://formidable.com/open-source/urql/docs/
 
         export default withUrqlClient(createUrqlClient, { ssr: true })(ForgotPassword);
 
-        6. Define frontend page change-password/[token].tsx
+        8. Define frontend page change-password/[token].tsx
 
         import { Box, Button, Link as ChakraLink } from "@chakra-ui/core";
         import { Formik, Form } from "formik";
@@ -2246,7 +2246,10 @@ https://formidable.com/open-source/urql/docs/
 
         export default withUrqlClient(createUrqlClient, { ssr: true })(ChangePassword);
 
-    
+16. Ripping out MikroORM in favor of typeorm.
+    a. to backend dependencies add
+        "typeorm": "^0.2.28",
+    b.     
 
 
 
