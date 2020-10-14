@@ -8,8 +8,10 @@ import {
   Mutation,
   Query,
   Resolver,
+  UseMiddleware,
 } from "type-graphql";
 import { MyContext } from "src/types";
+import { isAuth } from "src/middlewares/isAuth";
 
 @InputType()
 class PostInput {
@@ -37,12 +39,11 @@ export class PostResolver {
   // }
 
   @Mutation(() => Post)
+  @UseMiddleware(isAuth) //Disable create post functionality for users not signed in
   async createPost(
     @Ctx() { req }: MyContext,
     @Arg("input", () => PostInput) input: PostInput
   ): Promise<Post> {
-    //Disable post for users not signed in
-    if (!req.session.userId) throw new Error("User is not signed in");
     return Post.create({ ...input, creatorId: req.session.userId }).save();
   }
 

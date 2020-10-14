@@ -2387,6 +2387,29 @@ https://formidable.com/open-source/urql/docs/
 
 17. Creating a many-to-one relationship on our users, to keep track of their posts (docs: https://typeorm.io/#/many-to-one-one-to-many-relations)
 
+18. An example of define middleware to be used on one of our resolvers for, for example, authentication:
+    a. Define the middleware
+    //backend/src/middlewares/isAuth.ts
+        import { MyContext } from "src/types";
+        import { MiddlewareFn } from "type-graphql";
+
+        export const isAuth: MiddlewareFn<MyContext> = ({ context }, next) => {
+            if (!context.req.session.userId) {
+                throw new Error("Not authenticated");
+            }
+            return next();
+        };
+
+    b. Add the UseMiddleware decorator to the concerned resolver:
+    // backend/src/resolvers/post, as an example
+        @Mutation(() => Post)
+        @UseMiddleware(isAuth) //Disable post functionality for users not signed in
+        async createPost(
+            @Ctx() { req }: MyContext,
+            @Arg("input", () => PostInput) input: PostInput
+        ): Promise<Post> {
+            return Post.create({ ...input, creatorId: req.session.userId }).save();
+        }
 
 
 How to wipe a db table using typeorm:
