@@ -2246,10 +2246,11 @@ https://formidable.com/open-source/urql/docs/
 
         export default withUrqlClient(createUrqlClient, { ssr: true })(ChangePassword);
 
-16. Ripping out MikroORM in favor of typeorm.
+16. Ripping out MikroORM in favor of typeorm (docs @ https://typeorm.io/#/).
     a. to backend dependencies add
         "typeorm": "^0.2.28",
-    b.     
+    b. Create typeorm connection in backend/src/index.
+    c. Add appropriate typeorm decorators to entity classes.    
 
 
 

@@ -19,8 +19,18 @@ import cors from "cors";
 import { sendEmail } from "./utils/sendEmail";
 import { User } from "./entities/User";
 
+import { createConnection } from "typeorm";
+
 const main = async () => {
-  sendEmail("bob@bob.com", "<a>Hello there!</a>");
+  const connection = await createConnection({
+    type: "postgres",
+    database: "lireddit2",
+    username: "postgres",
+    password: "postgres",
+    logging: true,
+    //automatically perform migrations
+    synchronize: true,
+  });
 
   //Connect to MikroORM
   const orm = await MikroORM.init(microConfig);
