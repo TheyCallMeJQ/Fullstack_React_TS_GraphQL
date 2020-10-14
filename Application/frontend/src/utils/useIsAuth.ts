@@ -8,7 +8,7 @@ export const useIsAuth = () => {
   //Redirect user to login on page access without user credentials
   useEffect(() => {
     if (!data?.me && !fetching) {
-      router.push("/login");
+      router.replace("/login?next=" + router.pathname);
     }
   }, [data, fetching]);
 };

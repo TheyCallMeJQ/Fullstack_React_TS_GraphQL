@@ -34,7 +34,11 @@ const Login: React.FC<registerProps> = ({}) => {
             setErrors(map);
           } else if (response.data?.login.user) {
             //Redirect the user on successful registration
-            router.push("/");
+            if (typeof router.query.next === "string") {
+              router.push(router.query.next);
+            } else {
+              router.push("/");
+            }
           }
         }}
       >
