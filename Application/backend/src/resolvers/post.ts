@@ -10,6 +10,7 @@ import {
   Mutation,
   Query,
   Resolver,
+  Root,
   UseMiddleware,
 } from "type-graphql";
 import { MyContext } from "src/types";
@@ -26,8 +27,11 @@ class PostInput {
 
 @Resolver(Post)
 export class PostResolver {
+  //Called every time we get a Post object
   @FieldResolver(() => String)
-  textSnippet() {}
+  textSnippet(@Root() root: Post) {
+    return root.text.slice(0, 50);
+  }
 
   @Query(() => [Post])
   posts(
