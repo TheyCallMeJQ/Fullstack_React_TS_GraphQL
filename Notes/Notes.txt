@@ -2770,8 +2770,74 @@ https://formidable.com/open-source/urql/docs/
         }
         run another `yarn gen`
 
-        5. Fix up the frontend.
-        
+        6. Fix up the frontend.
+
+23. Return creator on post object using query builder and inner joins
+    a. docs: https://typeorm.io/#/select-query-builder/inner-and-left-joins
+    b. Add @Field decorator to creator: User in Post entity, to expose the creator field
+    b. replace `posts` query resolver in backend/src/resolvers/post with the following:
+    @Query(() => PaginatedPosts)
+    async posts(
+        @Arg("limit", () => Int) limit: number,
+        @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+    ): Promise<PaginatedPosts> {
+        //Cap it at 50 per page, no matter what the frontend says.
+        const realLimit = Math.min(50, limit);
+        const realLimitPlusOne = realLimit + 1;
+        const replacements: any[] = [realLimitPlusOne];
+        if (cursor) {
+        r   eplacements.push(new Date(parseInt(cursor)));
+        }
+        const posts = await getConnection().query(
+            `
+            select p.*,
+            json_build_object(
+                'id', u.id,
+                'username', u.username,
+                'email', u.email,
+                'createdAt', u."createdAt",
+                'updatedAt', u."updatedAt"
+            ) creator
+            from post p
+            inner join public.user u on u.id = p."creatorId"
+            ${cursor ? `where p."createdAt" < $2` : ""}
+            order by p."createdAt" DESC
+            limit $1
+            `,
+            replacements
+        );
+
+        console.log("Posts", posts);
+
+        return {
+            posts: posts.slice(0, realLimit),
+            hasMore: posts.length === realLimitPlusOne,
+        };
+    }
+
+24. Add logic to restrict access to a data field.
+    a. Add field resolver to user resolvers
+    //backend/src/resolvers/user
+        @Resolver(User)
+        export class UserResolver {
+            @FieldResolver(() => String)
+            email(@Root() requestedUser: User, @Ctx() { req }: MyContext) {
+                // if the current user is requesting their own email...
+                if (req.session.userId === requestedUser.id) {
+                    //... then return it
+                    return requestedUser.email;
+                }
+                // else return an empty string
+                return "";
+            }
+            //other resolvers
+        }    
+
+
+
+A fun fact on psql:
+- \d will show you the list of relations (including tables)
+- \du will show you the list of users
 
 A note on migrations:
 - the `up` function is what to do when we're committing to the db

@@ -7,6 +7,8 @@ import {
   Query,
   ObjectType,
   Resolver,
+  FieldResolver,
+  Root,
 } from "type-graphql";
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
@@ -33,8 +35,19 @@ class UserResponse {
   user?: User;
 }
 
-@Resolver()
+@Resolver(User)
 export class UserResolver {
+  @FieldResolver(() => String)
+  email(@Root() requestedUser: User, @Ctx() { req }: MyContext) {
+    // if the current user is requesting their own email...
+    if (req.session.userId === requestedUser.id) {
+      //... then return it
+      return requestedUser.email;
+    }
+    // else return an empty string
+    return "";
+  }
+
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email", () => String) email: string,
