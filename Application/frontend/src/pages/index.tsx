@@ -1,4 +1,4 @@
-import { Box, Link as ChakraLink } from "@chakra-ui/core";
+import { Box, Heading, Link as ChakraLink, Stack, Text } from "@chakra-ui/core";
 import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
 import React from "react";
@@ -16,11 +16,14 @@ const Index = () => {
       <NextLink href="/create-post">
         <ChakraLink>Create post</ChakraLink>
       </NextLink>
-      <Box>
+      <Stack>
         {data?.posts.map((post) => (
-          <Box key={post.id}>{post.title}</Box>
+          <Box key={post.id} p={5} shadow="md" borderWidth="1px">
+            <Heading fontSize="xl">{post.title}</Heading>
+            <Text mt={4}>{post.text}</Text>
+          </Box>
         ))}
-      </Box>
+      </Stack>
     </Layout>
   );
 };

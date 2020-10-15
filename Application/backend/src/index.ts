@@ -18,9 +18,10 @@ import { User } from "./entities/User";
 
 import { createConnection } from "typeorm";
 import { Post } from "./entities/Post";
+import path from "path";
 
 const main = async () => {
-  await createConnection({
+  const connection = await createConnection({
     type: "postgres",
     database: "lireddit2",
     username: "postgres",
@@ -28,11 +29,16 @@ const main = async () => {
     logging: true,
     //automatically perform migrations
     synchronize: true,
+    migrations: [path.join(__dirname, "./migrations/*")],
     entities: [User, Post],
   });
+  //Run anyh un-run migrations
+  await connection.runMigrations();
 
-  const Posts = await Post.find();
-  console.log("Posts", Posts);
+  // const posts = await Post.find();
+  // console.log("Posts", posts);
+  // const users = await User.find();
+  // console.log("Users", users);
 
   const PORT = 4000;
   const app = express();

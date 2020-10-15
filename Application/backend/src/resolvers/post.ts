@@ -4,6 +4,7 @@ import {
   Arg,
   Ctx,
   Field,
+  FieldResolver,
   InputType,
   Int,
   Mutation,
@@ -23,8 +24,11 @@ class PostInput {
   text: string;
 }
 
-@Resolver()
+@Resolver(Post)
 export class PostResolver {
+  @FieldResolver(() => String)
+  textSnippet() {}
+
   @Query(() => [Post])
   posts(
     @Arg("limit", () => Int) limit: number,

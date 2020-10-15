@@ -2465,7 +2465,7 @@ https://formidable.com/open-source/urql/docs/
         };
     b. Add to create-post page    
 
-21. Paginate our posts
+21. Paginate our posts: Import test data from mockaroo
     a. Modify our posts resolver in backend (https://typeorm.io/#/select-query-builder)
     //backend/src/resolvers/post
         @Query(() => [Post])
@@ -2490,7 +2490,42 @@ https://formidable.com/open-source/urql/docs/
         }
     b. Test on GraphQL playground
     c. Make adjustments to frontend
-    d. Use mockaroo to generate some test data
+    d. Use mockaroo to generate some test data (USE QUOTATIONS AROUND YOUR FIELD NAMES, else you'll get errors from SQL not respecting casing):
+        - "title": movie titles
+        - "text": paragraphs
+        - "creatorId": list, containing one of or some of our user ids
+    Download the data as an SQL.
+    e. Create directory backend/src/migrations, and make a new migration
+        $  npx typeorm migration:create -n FakePosts -d src/migrations
+    f. Copy-paste the contents of the SQL file into the migrations file
+
+        public async up(queryRunner: QueryRunner): Promise<void> {
+            await queryRunner.query(`
+                //...all the SQL
+            `)
+        }
+    g. Run the migration. In backend/src/index, have the following:
+    //backend/src/index
+        const main = async () => {
+            const connection = await createConnection({
+                type: "postgres",
+                database: "lireddit2",
+                username: "postgres",
+                password: "postgres",
+                logging: true,
+                //automatically perform migrations
+                synchronize: true,
+                migrations: [path.join(__dirname, "./migrations/*")],
+                entities: [User, Post],
+            });
+            //Run any un-run migrations
+            await connection.runMigrations();
+            
+            //... other main() stuff
+        }
+
+22. Limiting the amount of information returned from our db queries
+    a. Add a fieldresolver to our post resolver
 
 
 How to wipe a db table using typeorm:
