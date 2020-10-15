@@ -21,8 +21,8 @@ export const cursorPagination = (): Resolver => {
     const { parentKey: entityKey, fieldName } = info;
     // console.log("entityKey", entityKey, "fieldName", fieldName);
     const allFields = cache.inspectFields(entityKey);
-    console.log("allFields", allFields);
-    console.log("fieldArgs", fieldArgs);
+    // console.log("allFields", allFields);
+    // console.log("fieldArgs", fieldArgs);
     const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
     const size = fieldInfos.length;
     if (size === 0) {
@@ -31,19 +31,29 @@ export const cursorPagination = (): Resolver => {
 
     //ex.: posts({"limit":10})
     const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
-    console.log("fieldKey", fieldKey);
+    // console.log("fieldKey", fieldKey);
 
     const isItInTheCache = cache.resolveFieldByKey(entityKey, fieldKey);
-    console.log("Is it in the cache?", isItInTheCache);
+    // console.log("Is it in the cache?", isItInTheCache);
     info.partial = !isItInTheCache;
 
+    let hasMore = true;
     //Read and return the data from the cache
     const results: string[] = [];
     fieldInfos.forEach((fi) => {
-      const data = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string[];
+      const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+      const data = cache.resolve(key, "posts") as string[]; //resolve for our 'posts' field of our PaginatedPosts
+      const _hasMore = cache.resolve(key, "hasMore") as boolean; //resolve for our 'posts' field of our PaginatedPosts
+      if (!_hasMore) {
+        hasMore = _hasMore;
+      }
       results.push(...data);
     });
-    return results;
+    return {
+      __typename: "PaginatedPosts",
+      hasMore,
+      posts: results,
+    };
   };
 };
 
@@ -66,6 +76,9 @@ export const createUrqlClient = (ssrExchange: any) => ({
   exchanges: [
     dedupExchange,
     cacheExchange({
+      keys: {
+        PaginatedPosts: () => null,
+      },
       resolvers: {
         Query: {
           posts: cursorPagination(),

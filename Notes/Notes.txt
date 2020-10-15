@@ -2581,8 +2581,8 @@ https://formidable.com/open-source/urql/docs/
                     const { parentKey: entityKey, fieldName } = info;
                     // console.log("entityKey", entityKey, "fieldName", fieldName);
                     const allFields = cache.inspectFields(entityKey);
-                    console.log("allFields", allFields);
-                    console.log("fieldArgs", fieldArgs);
+                    // console.log("allFields", allFields);
+                    // console.log("fieldArgs", fieldArgs);
                     const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
                     const size = fieldInfos.length;
                     if (size === 0) {
@@ -2591,19 +2591,29 @@ https://formidable.com/open-source/urql/docs/
 
                     //ex.: posts({"limit":10})
                     const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
-                    console.log("fieldKey", fieldKey);
+                    // console.log("fieldKey", fieldKey);
 
                     const isItInTheCache = cache.resolveFieldByKey(entityKey, fieldKey);
-                    console.log("Is it in the cache?", isItInTheCache);
+                    // console.log("Is it in the cache?", isItInTheCache);
                     info.partial = !isItInTheCache;
 
+                    let hasMore = true;
                     //Read and return the data from the cache
                     const results: string[] = [];
                     fieldInfos.forEach((fi) => {
-                    const data = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string[];
+                        const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+                        const data = cache.resolve(key, "posts") as string[]; //resolve for our 'posts' field of our PaginatedPosts
+                        const _hasMore = cache.resolve(key, "hasMore") as boolean; //resolve for our 'posts' field of our PaginatedPosts
+                        if (!_hasMore) {
+                            hasMore = _hasMore;
+                        }
                         results.push(...data);
                     });
-                    return results;
+                    return {
+                        __typename: "PaginatedPosts",
+                        hasMore,
+                        posts: results,
+                    };
                 };
             };
 
@@ -2703,11 +2713,69 @@ https://formidable.com/open-source/urql/docs/
             ]
         }
 
-    
+        4. Define new post resolver type PaginatedPosts
+        //backend/src/resolvers/post
+            @ObjectType()
+            class PaginatedPosts {
+            @Field(() => [Post]) //GraphQL type
+            posts: Post[]; //Typescript type
+            @Field(() => Boolean)
+            hasMore: boolean;
+            }
+
+        4. Modify Posts `posts` query resolver
+        //backend/src/resolvers/post
+            @Query(() => PaginatedPosts)
+            async posts(
+                @Arg("limit", () => Int) limit: number,
+                @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+            ): Promise<PaginatedPosts> {
+                //Cap it at 50 per page, no matter what the frontend says.
+                const realLimit = Math.min(50, limit);
+                const realLimitPlusOne = realLimit + 1;
+                const qb = getConnection()
+                    .getRepository(Post)
+                    .createQueryBuilder("p")
+                    .orderBy('"createdAt"', "DESC")
+                    .take(realLimitPlusOne);
+                //if I have a 'createdAt' timestamp cursor, return to me the most recent post since the cursor post
+                if (cursor) {
+                    qb.where('"createdAt" < :cursor', {
+                        cursor: new Date(parseInt(cursor)),
+                    });
+                }
+                const posts = await qb.getMany();
+                console.log("Posts", posts.slice(0, 2));
+
+                return {
+                    posts: posts.slice(0, realLimit),
+                    hasMore: posts.length === realLimitPlusOne,
+                };
+            }
+
+        5. Redefine frontend graphql posts query:
+        frontend/src/graphql/queries/posts
+        query Posts($limit: Int!, $cursor: String) {
+            posts(limit: $limit, cursor: $cursor) {
+                hasMore
+                posts {
+                id
+                title
+                points
+                textSnippet
+                creatorId
+                createdAt
+                }
+            }
+        }
+        run another `yarn gen`
+
+        5. Fix up the frontend.
+        
+
 A note on migrations:
 - the `up` function is what to do when we're committing to the db
 - the `down` function is basically how we'd want to revert the commit. This is optional, though, as we always have the option of deleting the db and reinitializing it from scratch, at least in dev.
-
 
 How to wipe a db table using typeorm:
 - in our connection config, set synchronize to `false`
