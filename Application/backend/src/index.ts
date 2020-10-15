@@ -32,8 +32,11 @@ const main = async () => {
     migrations: [path.join(__dirname, "./migrations/*")],
     entities: [User, Post],
   });
-  //Run anyh un-run migrations
+  //Run any un-run migrations
   await connection.runMigrations();
+
+  //Clear the db
+  // await Post.delete({});
 
   // const posts = await Post.find();
   // console.log("Posts", posts);

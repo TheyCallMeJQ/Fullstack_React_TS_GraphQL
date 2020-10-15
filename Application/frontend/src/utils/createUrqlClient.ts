@@ -1,18 +1,51 @@
-import { cacheExchange } from "@urql/exchange-graphcache";
+import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
 import Router from "next/router";
-import { dedupExchange, Exchange, fetchExchange } from "urql";
+import {
+  dedupExchange,
+  Exchange,
+  fetchExchange,
+  stringifyVariables,
+} from "urql";
 import { pipe, tap } from "wonka";
 import {
-  CreatePostMutation,
   LoginMutation,
   LogoutMutation,
   MeDocument,
   MeQuery,
-  PostsDocument,
-  PostsQuery,
   RegisterMutation,
 } from "../generated/graphql";
 import { betterUpdateQuery } from "./betterUpdateQuery";
+
+export const cursorPagination = (): Resolver => {
+  return (_parent, fieldArgs, cache, info) => {
+    const { parentKey: entityKey, fieldName } = info;
+    // console.log("entityKey", entityKey, "fieldName", fieldName);
+    const allFields = cache.inspectFields(entityKey);
+    console.log("allFields", allFields);
+    console.log("fieldArgs", fieldArgs);
+    const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+    const size = fieldInfos.length;
+    if (size === 0) {
+      return undefined;
+    }
+
+    //ex.: posts({"limit":10})
+    const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
+    console.log("fieldKey", fieldKey);
+
+    const isItInTheCache = cache.resolveFieldByKey(entityKey, fieldKey);
+    console.log("Is it in the cache?", isItInTheCache);
+    info.partial = !isItInTheCache;
+
+    //Read and return the data from the cache
+    const results: string[] = [];
+    fieldInfos.forEach((fi) => {
+      const data = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string[];
+      results.push(...data);
+    });
+    return results;
+  };
+};
 
 const errorExchange: Exchange = ({ forward }) => (ops$) => {
   return pipe(
@@ -33,6 +66,11 @@ export const createUrqlClient = (ssrExchange: any) => ({
   exchanges: [
     dedupExchange,
     cacheExchange({
+      resolvers: {
+        Query: {
+          posts: cursorPagination(),
+        },
+      },
       updates: {
         Mutation: {
           logout: (result, args, cache, info) => {

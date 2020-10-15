@@ -2494,7 +2494,8 @@ https://formidable.com/open-source/urql/docs/
         - "title": movie titles
         - "text": paragraphs
         - "creatorId": list, containing one of or some of our user ids
-    Download the data as an SQL.
+        - "createdAt": ISO 8601
+    Download the data as an SQL. Note: the name of the file matters, as it determines the name of the table the SQL is inserted into. For instance, naming the file `post.sql` will have every mock data example inserted into table `post`.
     e. Create directory backend/src/migrations, and make a new migration
         $  npx typeorm migration:create -n FakePosts -d src/migrations
     f. Copy-paste the contents of the SQL file into the migrations file
@@ -2525,7 +2526,187 @@ https://formidable.com/open-source/urql/docs/
         }
 
 22. Limiting the amount of information returned from our db queries
-    a. Add a fieldresolver to our post resolver
+    a. Add a fieldresolver to our post resolver to limit the character count on text.
+    @Resolver(Post)
+    export class PostResolver {
+        //Called every time we get a Post object
+        @FieldResolver(() => String)
+        textSnippet(@Root() root: Post) {
+            return root.text.slice(0, 50);
+        }
+        //other Post resolvers
+    }
+
+    b. Modify frontend query
+    //frontend/src/graphql/queries/posts.graphql
+        query Posts($limit: Int!, $cursor: String) {
+            posts(limit: $limit, cursor: $cursor) {
+                id
+                title
+                points
+                textSnippet
+                creatorId
+                createdAt
+            }
+        }
+    Notice how we've swapped out our `text` field for our `textSnippet` field. This also means we need to change the accessed property in our frontend/src/pages/index.
+
+    c. Implement `load more` button in frontend/src/pages/index
+    
+    d. Replace SimplePagination implementation in frontend/src/utils/createUrqlClient
+        1. Copy-paste everything from https://github.com/FormidableLabs/urql/blob/main/exchanges/graphcache/src/extras/simplePagination.ts into frontend/src/utils/createUrqlClient
+
+        2. Modify implementation of simplePagination to the following:
+        //backend/src/utils/createUrqlClient
+            import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
+            import Router from "next/router";
+            import {
+                dedupExchange,
+                Exchange,
+                fetchExchange,
+                stringifyVariables,
+            } from "urql";
+            import { pipe, tap } from "wonka";
+            import {
+                LoginMutation,
+                LogoutMutation,
+                MeDocument,
+                MeQuery,
+                RegisterMutation,
+            } from "../generated/graphql";
+            import { betterUpdateQuery } from "./betterUpdateQuery";
+
+            export const cursorPagination = (): Resolver => {
+                return (_parent, fieldArgs, cache, info) => {
+                    const { parentKey: entityKey, fieldName } = info;
+                    // console.log("entityKey", entityKey, "fieldName", fieldName);
+                    const allFields = cache.inspectFields(entityKey);
+                    console.log("allFields", allFields);
+                    console.log("fieldArgs", fieldArgs);
+                    const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+                    const size = fieldInfos.length;
+                    if (size === 0) {
+                        return undefined;
+                    }
+
+                    //ex.: posts({"limit":10})
+                    const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
+                    console.log("fieldKey", fieldKey);
+
+                    const isItInTheCache = cache.resolveFieldByKey(entityKey, fieldKey);
+                    console.log("Is it in the cache?", isItInTheCache);
+                    info.partial = !isItInTheCache;
+
+                    //Read and return the data from the cache
+                    const results: string[] = [];
+                    fieldInfos.forEach((fi) => {
+                    const data = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string[];
+                        results.push(...data);
+                    });
+                    return results;
+                };
+            };
+
+            const errorExchange: Exchange = ({ forward }) => (ops$) => {
+            return pipe(
+                forward(ops$),
+                tap(({ error }) => {
+                if (error?.message.includes("Not authenticated")) {
+                    Router.replace("/login");
+                }
+                })
+            );
+            };
+
+            export const createUrqlClient = (ssrExchange: any) => ({
+            url: "http://localhost:4000/graphql",
+            fetchOptions: {
+                credentials: "include" as const,
+            },
+            exchanges: [
+                dedupExchange,
+                cacheExchange({
+                resolvers: {
+                    Query: {
+                    posts: cursorPagination(),
+                    },
+                },
+                updates: {
+                    Mutation: {
+                    logout: (result, args, cache, info) => {
+                        betterUpdateQuery<LogoutMutation, MeQuery>(
+                        cache,
+                        { query: MeDocument },
+                        result,
+                        () => ({
+                            me: null,
+                        })
+                        );
+                    },
+                    login: (result, args, cache, info) => {
+                        betterUpdateQuery<LoginMutation, MeQuery>(
+                        cache,
+                        { query: MeDocument },
+                        result,
+                        (newQueryResult, lastQueryResult) => {
+                            if (newQueryResult.login.errors) {
+                            return lastQueryResult;
+                            }
+                            return {
+                            me: newQueryResult.login.user,
+                            };
+                        }
+                        );
+                    },
+                    register: (result, args, cache, info) => {
+                        betterUpdateQuery<RegisterMutation, MeQuery>(
+                        cache,
+                        { query: MeDocument },
+                        result,
+                        (newQueryResult, lastQueryResult) => {
+                            if (newQueryResult.register.errors) {
+                            return lastQueryResult;
+                            }
+                            return {
+                            me: newQueryResult.register.user,
+                            };
+                        }
+                        );
+                    },
+                    },
+                },
+                }),
+                errorExchange,
+                ssrExchange,
+                fetchExchange,
+            ],
+            });
+
+
+        3. Add our simplePagination function to a resolver in cacheExchange:
+        //frontend/src/utils/createUrqlClient
+        export const createUrqlClient = (ssrExchange: any) => ({
+            url: "http://localhost:4000/graphql",
+            fetchOptions: {
+                credentials: "include" as const,
+            },
+            exchanges: [
+                dedupExchange,
+                cacheExchange({
+                    resolvers: {
+                        Query: {
+                            posts: cursorPagination(),
+                        },
+                    },
+                    //... other things in cacheExchange
+                })
+            ]
+        }
+
+    
+A note on migrations:
+- the `up` function is what to do when we're committing to the db
+- the `down` function is basically how we'd want to revert the commit. This is optional, though, as we always have the option of deleting the db and reinitializing it from scratch, at least in dev.
 
 
 How to wipe a db table using typeorm:
