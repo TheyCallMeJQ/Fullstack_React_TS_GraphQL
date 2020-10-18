@@ -3,6 +3,7 @@ import {
   Button,
   Flex,
   Heading,
+  Icon,
   Link as ChakraLink,
   Stack,
   Text,
@@ -39,11 +40,24 @@ const Index = () => {
       <br />
       <Stack spacing={8}>
         {data?.posts.posts.map((post) => (
-          <Box key={post.id} p={5} shadow="md" borderWidth="1px">
-            <Heading fontSize="xl">{post.title}</Heading>
-            <Text>posted by {post.creator.username}</Text>
-            <Text mt={4}>{post.textSnippet}</Text>
-          </Box>
+          <Flex key={post.id} p={5} shadow="md" borderWidth="1px">
+            <Flex
+              direction="column"
+              justifyContent="center"
+              alignItems="center"
+              mr={4}
+            >
+              <Icon name="chevron-up" size="24px" />
+              {post.points}
+              <Icon name="chevron-down" size="24px" />
+            </Flex>
+            <Flex>
+              <Box>
+                <Heading>{post.title}</Heading>
+                <Text>{post.creator.username}</Text>
+              </Box>
+            </Flex>
+          </Flex>
         ))}
       </Stack>
       {data && data.posts.hasMore && (
