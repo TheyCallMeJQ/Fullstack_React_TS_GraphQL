@@ -1,5 +1,4 @@
-import { Post } from "../entities/Post";
-
+import { MyContext } from "src/types";
 import {
   Arg,
   Ctx,
@@ -14,10 +13,9 @@ import {
   Root,
   UseMiddleware,
 } from "type-graphql";
-import { MyContext } from "src/types";
-import { isAuth } from "../middlewares/isAuth";
 import { getConnection } from "typeorm";
-import { Updoot } from "../entities/Updoot";
+import { Post } from "../entities/Post";
+import { isAuth } from "../middlewares/isAuth";
 
 @InputType()
 class PostInput {
@@ -97,18 +95,24 @@ export class PostResolver {
     const { userId } = req.session;
     const isUpdoot = value === -1;
     const realValue = isUpdoot ? 1 : -1;
-    await Updoot.insert({
-      userId,
-      postId,
-      value: realValue,
-    });
+    // await Updoot.insert({
+    //   userId,
+    //   postId,
+    //   value: realValue,
+    // });
     await getConnection().query(
       `
+      START TRANSACTION;
+      
+      insert into updoot ("userId", "postId", "value")
+      values(${userId}, ${postId}, ${realValue});
+
       update post
-      set points = points + $1
-      where id = $2
-      `,
-      [realValue, postId]
+      set points = points + ${realValue}
+      where id = ${postId};
+      
+      COMMIT;
+      `
     );
     return true;
   }
