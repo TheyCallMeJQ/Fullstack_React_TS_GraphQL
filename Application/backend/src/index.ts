@@ -31,7 +31,7 @@ const main = async () => {
     //automatically perform migrations
     synchronize: true,
     migrations: [path.join(__dirname, "./migrations/*")],
-    entities: [User, Post],
+    entities: [User, Post, Updoot],
   });
   //Run any un-run migrations
   await connection.runMigrations();

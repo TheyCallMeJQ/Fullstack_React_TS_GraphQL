@@ -104,9 +104,9 @@ export class PostResolver {
     });
     await getConnection().query(
       `
-      update post p
-      set p.points = p.points + $1
-      where p.id = $2
+      update post
+      set points = points + $1
+      where id = $2
       `,
       [realValue, postId]
     );

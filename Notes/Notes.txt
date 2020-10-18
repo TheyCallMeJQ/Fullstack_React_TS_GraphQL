@@ -2836,6 +2836,16 @@ https://formidable.com/open-source/urql/docs/
         }    
 
 
+Another fun fact on psql, if ever you get some shit about a foreign constraint or a relation not existing:
+- go onto psql 
+    $ psql postgres
+- \l to see your databases
+    postgres-# \l
+- switch onto your db with \c
+    postgres-# \c lireddit
+- drop the faulty table (you'll lose all your data, obvi.)
+    lireddit=# DROP TABLE updoot;
+Voila!    
 
 A fun fact on psql:
 - \d will show you the list of relations (including tables)
