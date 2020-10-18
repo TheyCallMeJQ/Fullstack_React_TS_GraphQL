@@ -4,6 +4,7 @@ import {
   Flex,
   Heading,
   Icon,
+  IconButton,
   Link as ChakraLink,
   Stack,
   Text,
@@ -12,6 +13,7 @@ import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
 import React, { useState } from "react";
 import { Layout } from "../components/Layout";
+import { UpdootSection } from "../components/UpdootSection";
 import { usePostsQuery } from "../generated/graphql";
 import { createUrqlClient } from "../utils/createUrqlClient";
 
@@ -41,22 +43,11 @@ const Index = () => {
       <Stack spacing={8}>
         {data?.posts.posts.map((post) => (
           <Flex key={post.id} p={5} shadow="md" borderWidth="1px">
-            <Flex
-              direction="column"
-              justifyContent="center"
-              alignItems="center"
-              mr={4}
-            >
-              <Icon name="chevron-up" size="24px" />
-              {post.points}
-              <Icon name="chevron-down" size="24px" />
-            </Flex>
-            <Flex>
-              <Box>
-                <Heading>{post.title}</Heading>
-                <Text>{post.creator.username}</Text>
-              </Box>
-            </Flex>
+            <UpdootSection post={post} />
+            <Box>
+              <Heading fontSize="xl">{post.title}</Heading>
+              <Text>posted by {post.creator.username}</Text>
+            </Box>
           </Flex>
         ))}
       </Stack>
