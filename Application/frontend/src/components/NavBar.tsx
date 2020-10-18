@@ -1,14 +1,18 @@
-import { Box, Button, Flex, Link } from "@chakra-ui/core";
-import React from "react";
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  Link as ChakraLink,
+} from "@chakra-ui/core";
 import NextLink from "next/link";
-
+import React from "react";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
-import { isServer } from "../utils/isServer";
 
 export const NavBar: React.FC<{}> = ({}) => {
   const [{ data, fetching: meFetching }] = useMeQuery({
     // Don't run this query on the server
-    pause: isServer(),
+    // pause: isServer(),
   });
   const [{ fetching: logoutFetching }, logout] = useLogoutMutation();
 
@@ -21,10 +25,10 @@ export const NavBar: React.FC<{}> = ({}) => {
     body = (
       <>
         <NextLink href="login">
-          <Link mr={2}>Login</Link>
+          <ChakraLink mr={2}>Login</ChakraLink>
         </NextLink>
         <NextLink href="register">
-          <Link>Register</Link>
+          <ChakraLink>Register</ChakraLink>
         </NextLink>
       </>
     );
@@ -46,7 +50,12 @@ export const NavBar: React.FC<{}> = ({}) => {
   }
 
   return (
-    <Flex zIndex={1} position="sticky" top={0} bg="tomato" p={4}>
+    <Flex zIndex={1} position="sticky" top={0} bg="tomato" p={4} align="center">
+      <NextLink href="/">
+        <ChakraLink>
+          <Heading>LiReddit</Heading>
+        </ChakraLink>
+      </NextLink>
       <Box ml={"auto"}>{body}</Box>
     </Flex>
   );

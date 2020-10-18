@@ -2963,7 +2963,7 @@ https://formidable.com/open-source/urql/docs/
             updatedAt: Date;
         }
 
-    c. Add vote resolver to Post resolvers
+    c. Add vote resolver to Post resolvers and fix posts query
     //backend/src/resolvers/post
     //other post resolvers...
         @Mutation(() => Boolean)
@@ -3022,6 +3022,59 @@ https://formidable.com/open-source/urql/docs/
             }
             
             return true;
+        }
+
+        //posts query:
+
+        @Query(() => PaginatedPosts)
+        async posts(
+            @Arg("limit", () => Int) limit: number,
+            @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+            @Ctx() { req }: MyContext
+        ): Promise<PaginatedPosts> {
+            //Cap it at 50 per page, no matter what the frontend says.
+            const realLimit = Math.min(50, limit);
+            const realLimitPlusOne = realLimit + 1;
+            const replacements: any[] = [realLimitPlusOne];
+            if (req.session.userId) {
+            replacements.push(req.session.userId);
+            }
+            //Ensure cursorIndex has a value to always make sense in our query
+            let cursorIndex = 3;
+            if (cursor) {
+            replacements.push(new Date(parseInt(cursor)));
+            cursorIndex = replacements.length;
+            }
+            const posts = await getConnection().query(
+            `
+            select p.*,
+            json_build_object(
+                'id', u.id,
+                'username', u.username,
+                'email', u.email,
+                'createdAt', u."createdAt",
+                'updatedAt', u."updatedAt"
+            ) creator,
+            ${
+                req.session.userId
+                ? `(select value from updoot where "userId" = $2 and "postId" = p.id) "voteStatus"`
+                : `null as "voteStatus"`
+            }
+            from post p
+            inner join public.user u on u.id = p."creatorId"
+            ${cursor ? `where p."createdAt" < $${cursorIndex}` : ""}
+            order by p."createdAt" DESC
+            limit $1
+            `,
+            replacements
+            );
+
+            console.log("Posts", posts);
+
+            return {
+            posts: posts.slice(0, realLimit),
+            hasMore: posts.length === realLimitPlusOne,
+            };
         }
     d. Create vote mutation on the frontend, `yarn gen`
         //frontend/src/graphql/mutations/vote.graphql
@@ -3156,6 +3209,220 @@ https://formidable.com/open-source/urql/docs/
             );
         };
 
+    f. Make a modification to frontend/src/utils/createUrqlClient to update properly on vote, and add cookie to request for server-side rendering (cmd+f 'cookie' for more).
+        import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
+        import gql from "graphql-tag";
+        import Router from "next/router";
+        import {
+            dedupExchange,
+            Exchange,
+            fetchExchange,
+            stringifyVariables,
+        } from "urql";
+        import { pipe, tap } from "wonka";
+        import {
+            LoginMutation,
+            LogoutMutation,
+            MeDocument,
+            MeQuery,
+            RegisterMutation,
+            VoteMutationVariables,
+        } from "../generated/graphql";
+        import { betterUpdateQuery } from "./betterUpdateQuery";
+        import { isServer } from "./isServer";
+
+        export const cursorPagination = (): Resolver => {
+            return (_parent, fieldArgs, cache, info) => {
+                const { parentKey: entityKey, fieldName } = info;
+                // console.log("entityKey", entityKey, "fieldName", fieldName);
+                const allFields = cache.inspectFields(entityKey);
+                // console.log("allFields", allFields);
+                // console.log("fieldArgs", fieldArgs);
+                const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+                const size = fieldInfos.length;
+                if (size === 0) {
+                return undefined;
+                }
+
+                //ex.: posts({"limit":10})
+                const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
+                // console.log("fieldKey", fieldKey);
+
+                const isItInTheCache = cache.resolveFieldByKey(entityKey, fieldKey);
+                // console.log("Is it in the cache?", isItInTheCache);
+                info.partial = !isItInTheCache;
+
+                let hasMore = true;
+                //Read and return the data from the cache
+                const results: string[] = [];
+                fieldInfos.forEach((fi) => {
+                const key = cache.resolveFieldByKey(entityKey, fi.fieldKey) as string;
+                const data = cache.resolve(key, "posts") as string[]; //resolve for our 'posts' field of our PaginatedPosts
+                const _hasMore = cache.resolve(key, "hasMore") as boolean; //resolve for our 'posts' field of our PaginatedPosts
+                if (!_hasMore) {
+                    hasMore = _hasMore;
+                }
+                results.push(...data);
+                });
+                return {
+                __typename: "PaginatedPosts",
+                hasMore,
+                posts: results,
+                };
+            };
+        };
+
+        const errorExchange: Exchange = ({ forward }) => (ops$) => {
+            return pipe(
+                forward(ops$),
+                tap(({ error }) => {
+                if (error?.message.includes("Not authenticated")) {
+                    Router.replace("/login");
+                }
+                })
+            );
+        };
+
+        export const createUrqlClient = (ssrExchange: any, ctx: any) => {
+            let cookie = "";
+            //only execute this code on the server
+            if (isServer()) {
+                cookie = ctx.req.cookie;
+            }
+            return {
+                url: "http://localhost:4000/graphql",
+                fetchOptions: {
+                credentials: "include" as const,
+                headers: cookie ? { cookie } : undefined,
+                },
+                exchanges: [
+                dedupExchange,
+                cacheExchange({
+                    keys: {
+                        PaginatedPosts: () => null,
+                    },
+                    resolvers: {
+                        Query: {
+                            posts: cursorPagination(),
+                        },
+                    },
+                    updates: {
+                        Mutation: {
+                            vote: (result, args, cache, info) => {
+                                console.group("[DEV] URQL client update vote");
+
+                                const { postId, value } = args as VoteMutationVariables;
+                                const data = cache.readFragment(
+                                    gql`
+                                    fragment __ on Post {
+                                        id
+                                        points
+                                        voteStatus
+                                    }
+                                    `,
+                                    { id: postId } as any
+                                );
+                                console.log("data", data);
+
+                                if (data) {
+                                    //If the user already voted, and chose the same vote
+                                    if (data.voteStatus === value) {
+                                    return;
+                                    }
+                                    //If the user hasn't voted before, vote for one point either positive or negative
+                                    //If the user already voted, and chose a different vote, then vote for two points in their new direction
+                                    const newPoints =
+                                    (data.points as number) + (!data.voteStatus ? 1 : 2) * value;
+                                    cache.writeFragment(
+                                    gql`
+                                        fragment _ on Post {
+                                        points
+                                        voteStatus
+                                        }
+                                    `,
+                                    {
+                                        id: postId,
+                                        points: newPoints,
+                                        voteStatus: value,
+                                    } as any
+                                    );
+                                }
+                                console.groupEnd();
+                            },
+                            createPost: (result, args, cache, info) => {
+                            console.group("Helpful debugs");
+                            // console.log(cache.inspectFields("Query"));
+                            const allFields = cache.inspectFields("Query");
+                            const fieldInfos = allFields.filter(
+                                (info) => info.fieldName === "posts"
+                            );
+                            fieldInfos.forEach((fI) => {
+                                cache.invalidate("Query", "posts", fI.arguments || {});
+                            });
+
+                            // console.log(cache.inspectFields("Query"));
+                            console.groupEnd();
+                            },
+                            logout: (result, args, cache, info) => {
+                            betterUpdateQuery<LogoutMutation, MeQuery>(
+                                cache,
+                                { query: MeDocument },
+                                result,
+                                () => ({
+                                me: null,
+                                })
+                            );
+                            },
+                            login: (result, args, cache, info) => {
+                            betterUpdateQuery<LoginMutation, MeQuery>(
+                                cache,
+                                { query: MeDocument },
+                                result,
+                                (newQueryResult, lastQueryResult) => {
+                                if (newQueryResult.login.errors) {
+                                    return lastQueryResult;
+                                }
+                                return {
+                                    me: newQueryResult.login.user,
+                                };
+                                }
+                            );
+                            },
+                            register: (result, args, cache, info) => {
+                            betterUpdateQuery<RegisterMutation, MeQuery>(
+                                cache,
+                                { query: MeDocument },
+                                result,
+                                (newQueryResult, lastQueryResult) => {
+                                if (newQueryResult.register.errors) {
+                                    return lastQueryResult;
+                                }
+                                return {
+                                    me: newQueryResult.register.user,
+                                };
+                                }
+                            );
+                            },
+                        },
+                    },
+                }),
+                errorExchange,
+                ssrExchange,
+                fetchExchange,
+                ],
+            };
+        };
+
+
+
+
+A note on a SSR request:
+A client-side request, goes straight from browser to GraphQL
+    browser -> GraphQL API
+When our browser makes a request, it automatically sends the cookies to GraphQL along in its request. A server-side request is different.
+A SSR request goes from our browser, to our NextJS server, and finally to our GraphQL API
+    browser -> our NextJS server -> our GraphQL API
+The difference here is that our browser automatically sends our cookies to the NextJS server, but then they just stay there, and they don't make it to the GraphQL API. What we're going to want to do to fix this is pass our cookies along so that they make it to GraphQL through the NextJS server.    
         
 To drop a table with foreign key constraints, here is what you do:
     $ psql postgres         //open postgres
