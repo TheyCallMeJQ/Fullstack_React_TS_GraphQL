@@ -1,22 +1,89 @@
+import { Box, Button } from "@chakra-ui/core";
+import { Form, Formik } from "formik";
 import { withUrqlClient } from "next-urql";
 import { useRouter } from "next/router";
 import React from "react";
+import { InputField } from "../../../components/InputField";
+import { Layout } from "../../../components/Layout";
+import {
+  usePostQuery,
+  useUpdatePostMutation,
+} from "../../../generated/graphql";
 import { createUrqlClient } from "../../../utils/createUrqlClient";
+import { useGetPostFromUrl } from "../../../utils/useGetPostFromUrl";
 
 interface UpdatePostProps {}
 
 const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
   const router = useRouter();
-  const intId =
-    typeof router.query.id === "string" ? parseInt(router.query.id) : -1;
+  const [{ fetching, data, error, intId }] = useGetPostFromUrl();
+  const [, updatePost] = useUpdatePostMutation();
   console.group("page update-post");
-  console.log(`Received id ${router.query.id}`);
+  // console.log(`Received id ${router.query.id}`);
+
   console.groupEnd();
 
+  if (fetching)
+    return (
+      <Layout>
+        <Box>Loading...</Box>
+      </Layout>
+    );
+
+  if (!fetching && !data?.post)
+    return (
+      <Layout>
+        <Box>Could not find post</Box>
+      </Layout>
+    );
+
+  if (error)
+    return (
+      <Layout>
+        <Box>{error.message}</Box>
+      </Layout>
+    );
+
   return (
-    <div>
-      <h1>Hi!</h1>
-    </div>
+    <Layout variant="small">
+      <Formik
+        initialValues={{
+          title: data?.post?.title,
+          text: data?.post?.text,
+        }}
+        onSubmit={async (values, { setErrors }) => {
+          //Errors are automatically handled by errorExchange on urql client.
+          const { error } = await updatePost({
+            id: data?.post?.id as any,
+            ...values,
+          });
+          if (error) console.log(`Error in post/edit/${data?.post?.id}`);
+          router.push("/");
+        }}
+      >
+        {({ isSubmitting }) => (
+          <Form>
+            <InputField label="Title" placeholder="title" name="title" />
+            <Box mt={4}>
+              <InputField
+                isTextArea={true}
+                label="Text"
+                placeholder="text"
+                name="text"
+              />
+            </Box>
+            <Button
+              mt={1}
+              isLoading={isSubmitting}
+              type="submit"
+              variantColor="teal"
+            >
+              Save changes
+            </Button>
+          </Form>
+        )}
+      </Formik>
+    </Layout>
   );
 };
 

@@ -78,10 +78,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
   if (isServer()) {
     // Intercept our request coming from client-side, passing through our NextJS Server
     // Ensure the cookie makes it to the GraphQL API by including it in our headers, below
-    console.log("ctx", ctx);
-
-    cookie = ctx.req.headers.cookie;
-    console.log("Cookie", cookie);
+    cookie = ctx?.req?.headers?.cookie;
   }
   return {
     url: "http://localhost:4000/graphql",
