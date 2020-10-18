@@ -48,12 +48,24 @@ const Index = () => {
                   <Text flex={1} mt={4}>
                     {post.textSnippet}
                   </Text>
-                  <IconButton
-                    variantColor="red"
-                    icon="delete"
-                    aria-label="Delete post"
-                    onClick={() => deletePost({ id: post.id })}
-                  />
+                  <Box ml="auto">
+                    <NextLink
+                      href={`/post/edit/id`}
+                      as={`/post/edit/${post.id}`}
+                    >
+                      <IconButton
+                        as={ChakraLink}
+                        icon="edit"
+                        aria-label="Edit post"
+                        mr={4}
+                      />
+                    </NextLink>
+                    <IconButton
+                      icon="delete"
+                      aria-label="Delete post"
+                      onClick={() => deletePost({ id: post.id })}
+                    />
+                  </Box>
                 </Flex>
               </Box>
             </Flex>

@@ -17,6 +17,7 @@ import {
 import { getConnection } from "typeorm";
 import { Post } from "../entities/Post";
 import { isAuth } from "../middlewares/isAuth";
+import { text } from "express";
 
 @InputType()
 class PostInput {
@@ -167,17 +168,34 @@ export class PostResolver {
   }
 
   @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(isAuth)
   async updatePost(
-    @Arg("id", () => Number) id: number,
-    @Arg("title", () => String, { nullable: true }) title: string
+    @Ctx() { req }: MyContext,
+    @Arg("id", () => Int) id: number,
+    @Arg("title", () => String, { nullable: true }) title: string,
+    @Arg("text", () => String, { nullable: true }) text: string
   ): Promise<Post | null> {
-    const post = await Post.findOne(id);
-    if (!post) {
-      return null;
-    }
-    if (typeof title !== undefined) {
-      await Post.update({ id }, { title });
-    }
+    console.group("Post resolver updatePost(id, title, text)");
+    let args = {};
+    if (text) args = { ...args, text };
+    if (title) args = { ...args, title };
+
+    //If there are no actual args, don't bother the server with this
+    if (Object.keys(args).length < 1) return null;
+
+    const connectionResult = await getConnection()
+      .createQueryBuilder()
+      .update(Post)
+      .set({ ...args })
+      .where('id = :id and "creatorId" = :creatorId', {
+        id,
+        creatorId: req.session.userId,
+      })
+      .returning("*")
+      .execute();
+    const post = connectionResult.raw[0];
+    console.log("post", post);
+    console.groupEnd();
     return post;
   }
 
