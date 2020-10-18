@@ -3157,6 +3157,14 @@ https://formidable.com/open-source/urql/docs/
         };
 
         
+To drop a table with foreign key constraints, here is what you do:
+    $ psql postgres         //open postgres
+    postgres-# \l           //See all databases
+    postgres-# \c lireddit  //Where lireddit is the desired db name
+Say post has a foreign key constraint on table updoot.
+    lireddit=# DROP TABLE post CASCADE;
+You can also drop the updoot table if you want to be thorough (you may as well).
+Now you need to re-run the migration to get our mock data back in the db.
 If ever you're trying to make a migration run but nothing's happening, what you need to do is change the name of the migration file, and then ensure that the class of the migration in the file matches the filename. So for instance, I had 
     1602790818370-FakePosts.ts
 I renamed it to
