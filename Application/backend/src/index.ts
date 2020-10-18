@@ -18,12 +18,13 @@ import { User } from "./entities/User";
 
 import { createConnection } from "typeorm";
 import { Post } from "./entities/Post";
+import { Updoot } from "./entities/Updoot";
 import path from "path";
 
 const main = async () => {
   const connection = await createConnection({
     type: "postgres",
-    database: "lireddit2",
+    database: "lireddit",
     username: "postgres",
     password: "postgres",
     logging: true,

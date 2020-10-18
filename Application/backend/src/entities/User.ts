@@ -32,9 +32,9 @@ export class User extends BaseEntity {
   @OneToMany(() => Post, (post) => post.creator)
   posts: Post[];
 
-  @Field(() => User)
-  @OneToMany(() => Updoot, (updoot) => updoot.user)
-  updoots: Updoot[];
+  // @Field(() => User)
+  // @OneToMany(() => Updoot, (updoot) => updoot.user)
+  // updoots: Updoot[];
 
   @Field(() => String)
   @CreateDateColumn()

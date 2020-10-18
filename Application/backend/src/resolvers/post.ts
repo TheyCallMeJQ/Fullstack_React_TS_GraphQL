@@ -17,6 +17,7 @@ import {
 import { MyContext } from "src/types";
 import { isAuth } from "../middlewares/isAuth";
 import { getConnection } from "typeorm";
+import { Updoot } from "../entities/Updoot";
 
 @InputType()
 class PostInput {
@@ -84,6 +85,32 @@ export class PostResolver {
   @Query(() => Post, { nullable: true })
   post(@Arg("id", () => Number) id: number): Promise<Post | undefined> {
     return Post.findOne(id);
+  }
+
+  @Mutation(() => Boolean)
+  @UseMiddleware(isAuth)
+  async vote(
+    @Arg("postId", () => Int) postId: number,
+    @Arg("value", () => Int) value: number,
+    @Ctx() { req }: MyContext
+  ) {
+    const { userId } = req.session;
+    const isUpdoot = value === -1;
+    const realValue = isUpdoot ? 1 : -1;
+    await Updoot.insert({
+      userId,
+      postId,
+      value: realValue,
+    });
+    await getConnection().query(
+      `
+      update post p
+      set p.points = p.points + $1
+      where p.id = $2
+      `,
+      [realValue, postId]
+    );
+    return true;
   }
 
   @Mutation(() => Post)

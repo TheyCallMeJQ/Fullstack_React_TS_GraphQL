@@ -53,7 +53,9 @@ console.log('Hello world!');
         $ brew install postgresql
     b. Ensure successful install via 
         $ postgres -V
-    c. Ensure existence of postgres default account with the following:
+    c. Start server with 
+        $ brew services start postgresql
+    d. Ensure existence of postgres default account with the following:
         1. $ psql postgres
         2. postgres=# \du
         3. (Optional) If now you DON'T see postgres account listed, exit and run the following:
@@ -2252,7 +2254,7 @@ https://formidable.com/open-source/urql/docs/
     b. Create typeorm connection in backend/src/index.
         await createConnection({
             type: "postgres",
-            database: "lireddit2",
+            database: "lireddit",
             username: "postgres",
             password: "postgres",
             logging: true,
@@ -2510,7 +2512,7 @@ https://formidable.com/open-source/urql/docs/
         const main = async () => {
             const connection = await createConnection({
                 type: "postgres",
-                database: "lireddit2",
+                database: "lireddit",
                 username: "postgres",
                 password: "postgres",
                 logging: true,
