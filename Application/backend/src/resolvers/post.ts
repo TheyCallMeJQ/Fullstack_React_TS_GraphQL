@@ -187,17 +187,22 @@ export class PostResolver {
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: MyContext
   ): Promise<boolean> {
-    const post = await Post.findOne({ id });
-    //Bad ID
-    if (!post) {
-      return false;
-    }
-    if (post.creatorId !== req.session.userId) {
-      throw new Error("You are not authorized to delete this post");
-    }
-    //Can't delete Post because of foreign key on updoot
-    await Updoot.delete({ postId: id });
-    await Post.delete({ id });
+    // Deletion without cascading
+    // const post = await Post.findOne({ id });
+    // //Bad ID
+    // if (!post) {
+    //   return false;
+    // }
+    // if (post.creatorId !== req.session.userId) {
+    //   throw new Error("You are not authorized to delete this post");
+    // }
+    // //Can't delete Post because of foreign key on updoot
+    // await Updoot.delete({ postId: id });
+    // await Post.delete({ id });
+    // return true;
+
+    //Ensure only owners of this post can delete it
+    await Post.delete({ id, creatorId: req.session.userId });
     return true;
   }
 }
