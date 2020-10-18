@@ -3,6 +3,7 @@ import {
   Button,
   Flex,
   Heading,
+  IconButton,
   Link as ChakraLink,
   Stack,
   Text,
@@ -12,7 +13,7 @@ import NextLink from "next/link";
 import React, { useState } from "react";
 import { Layout } from "../components/Layout";
 import { UpdootSection } from "../components/UpdootSection";
-import { usePostsQuery } from "../generated/graphql";
+import { useDeletePostMutation, usePostsQuery } from "../generated/graphql";
 import { createUrqlClient } from "../utils/createUrqlClient";
 
 const Index = () => {
@@ -21,7 +22,7 @@ const Index = () => {
     cursor: null as null | string,
   });
   const [{ data, fetching }] = usePostsQuery({ variables });
-
+  const [, deletePost] = useDeletePostMutation();
   console.log("data", data);
 
   if (!data && !fetching)
@@ -31,28 +32,33 @@ const Index = () => {
     <div>Loading...</div>
   ) : (
     <Layout>
-      <Flex align="center">
-        <Heading>LiReddit</Heading>
-        <NextLink href="/create-post">
-          <ChakraLink ml="auto">Create post</ChakraLink>
-        </NextLink>
-      </Flex>
-      <br />
       <Stack spacing={8}>
-        {data?.posts.posts.map((post) => (
-          <Flex key={post.id} p={5} shadow="md" borderWidth="1px">
-            <UpdootSection post={post} />
-            <Box>
-              <NextLink href="/post/id" as={`/post/${post.id}`}>
-                <ChakraLink>
-                  <Heading fontSize="xl">{post.title}</Heading>
-                </ChakraLink>
-              </NextLink>
-              <Text>posted by {post.creator.username}</Text>
-              <Text>{post.textSnippet}</Text>
-            </Box>
-          </Flex>
-        ))}
+        {data?.posts.posts.map((post) =>
+          !post ? null : (
+            <Flex key={post.id} p={5} shadow="md" borderWidth="1px">
+              <UpdootSection post={post} />
+              <Box flex={1}>
+                <NextLink href="/post/id" as={`/post/${post.id}`}>
+                  <ChakraLink>
+                    <Heading fontSize="xl">{post.title}</Heading>
+                  </ChakraLink>
+                </NextLink>
+                <Text>posted by {post.creator.username}</Text>
+                <Flex align="center">
+                  <Text flex={1} mt={4}>
+                    {post.textSnippet}
+                  </Text>
+                  <IconButton
+                    variantColor="red"
+                    icon="delete"
+                    aria-label="Delete post"
+                    onClick={() => deletePost({ id: post.id })}
+                  />
+                </Flex>
+              </Box>
+            </Flex>
+          )
+        )}
       </Stack>
       {data && data.posts.hasMore && (
         <Flex>

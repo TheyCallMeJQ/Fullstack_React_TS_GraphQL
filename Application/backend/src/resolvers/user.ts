@@ -9,6 +9,7 @@ import {
   Resolver,
   FieldResolver,
   Root,
+  Int,
 } from "type-graphql";
 import { MyContext } from "src/types";
 import { User } from "../entities/User";
@@ -64,6 +65,16 @@ export class UserResolver {
     await sendEmail(email, htmlText);
 
     return true;
+  }
+
+  @Query(() => User)
+  user(@Arg("id", () => Int) id: number) {
+    return User.findOne(id);
+  }
+
+  @Query(() => [User])
+  users() {
+    return User.find({});
   }
 
   @Mutation(() => UserResponse)

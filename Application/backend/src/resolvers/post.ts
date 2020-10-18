@@ -182,8 +182,22 @@ export class PostResolver {
   }
 
   @Mutation(() => Boolean)
-  async deletePost(@Arg("id", () => Number) id: number): Promise<boolean> {
-    await Post.delete(id);
+  @UseMiddleware(isAuth)
+  async deletePost(
+    @Arg("id", () => Int) id: number,
+    @Ctx() { req }: MyContext
+  ): Promise<boolean> {
+    const post = await Post.findOne({ id });
+    //Bad ID
+    if (!post) {
+      return false;
+    }
+    if (post.creatorId !== req.session.userId) {
+      throw new Error("You are not authorized to delete this post");
+    }
+    //Can't delete Post because of foreign key on updoot
+    await Updoot.delete({ postId: id });
+    await Post.delete({ id });
     return true;
   }
 }
