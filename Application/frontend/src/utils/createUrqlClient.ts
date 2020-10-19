@@ -150,7 +150,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
               console.groupEnd();
             },
             createPost: (_, __, cache, ___) => {
-              console.group("Helpful debugs");
+              console.group("createUrqlClient updates createPost");
               // console.log(cache.inspectFields("Query"));
               const allFields = cache.inspectFields("Query");
               const fieldInfos = allFields.filter(

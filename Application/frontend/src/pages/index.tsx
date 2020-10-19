@@ -3,7 +3,6 @@ import {
   Button,
   Flex,
   Heading,
-  IconButton,
   Link as ChakraLink,
   Stack,
   Text,
@@ -11,19 +10,11 @@ import {
 import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
 import React, { useState } from "react";
+import { EditDeletePostButtons } from "../components/EditDeletePostButtons";
 import { Layout } from "../components/Layout";
 import { UpdootSection } from "../components/UpdootSection";
-import {
-  PostSnippetFragment,
-  RegularUserFragment,
-  useDeletePostMutation,
-  useMeQuery,
-  usePostsQuery,
-} from "../generated/graphql";
+import { usePostsQuery } from "../generated/graphql";
 import { createUrqlClient } from "../utils/createUrqlClient";
-
-const isOwner = (me: RegularUserFragment, post: PostSnippetFragment): boolean =>
-  me.id === post.creator.id;
 
 const Index = () => {
   console.group("index page");
@@ -31,17 +22,24 @@ const Index = () => {
     limit: 15,
     cursor: null as null | string,
   });
-  const [{ data: postsData, fetching: fetchingPosts }] = usePostsQuery({
+  const [
+    { error: postsError, data: postsData, fetching: fetchingPosts },
+  ] = usePostsQuery({
     variables,
   });
-  const [{ data: meData, fetching: fetchingMe }] = useMeQuery();
-  const [, deletePost] = useDeletePostMutation();
-  console.log("data", postsData);
 
-  if (!postsData && !fetchingPosts)
-    return <div>You got failed query for some reason</div>;
+  // console.log("data", postsData);
+
+  if (postsError || (!postsData && !fetchingPosts))
+    return (
+      <div>
+        <h2>Failed query</h2>
+        <div>{postsError?.message}</div>
+      </div>
+    );
 
   console.groupEnd();
+
   return !postsData && fetchingPosts ? (
     <div>Loading...</div>
   ) : (
@@ -62,26 +60,10 @@ const Index = () => {
                   <Text flex={1} mt={4}>
                     {post.textSnippet}
                   </Text>
-                  {!fetchingMe && meData?.me && isOwner(meData!.me, post) && (
-                    <Box ml="auto">
-                      <NextLink
-                        href={`/post/edit/id`}
-                        as={`/post/edit/${post.id}`}
-                      >
-                        <IconButton
-                          as={ChakraLink}
-                          icon="edit"
-                          aria-label="Edit post"
-                          mr={4}
-                        />
-                      </NextLink>
-                      <IconButton
-                        icon="delete"
-                        aria-label="Delete post"
-                        onClick={() => deletePost({ id: post.id })}
-                      />
-                    </Box>
-                  )}
+                  <EditDeletePostButtons
+                    id={post.id}
+                    creatorId={post.creator.id}
+                  />
                 </Flex>
               </Box>
             </Flex>

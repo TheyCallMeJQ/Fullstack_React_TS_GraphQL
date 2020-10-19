@@ -20,6 +20,7 @@ import { createConnection } from "typeorm";
 import { Post } from "./entities/Post";
 import { Updoot } from "./entities/Updoot";
 import path from "path";
+import { createUserLoader } from "./utils/createUserLoader";
 
 const main = async () => {
   const connection = await createConnection({
@@ -82,7 +83,12 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }) => ({ req, res, redis }),
+    context: ({ req, res }) => ({
+      req,
+      res,
+      redis,
+      userLoader: createUserLoader(),
+    }),
   });
 
   apolloServer.applyMiddleware({

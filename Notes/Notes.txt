@@ -3413,8 +3413,148 @@ https://formidable.com/open-source/urql/docs/
             };
         };
 
+26. Adding a field resolver on Post resolvers, to fetch the creator User, instead of performing an inne rjoin on the user table via QueryBuilder.
+    1. In backend/src/resolvers/post, have the following:
+        
+        //backend/src/resolvers/post
+        @Resolver(Post)
+        export class PostResolver {
+            //Called every time we get a Post object
+            @FieldResolver(() => String)
+            textSnippet(@Root() root: Post) {
+                return root.text.slice(0, 50);
+            }
+
+            @FieldResolver(() => User)
+            creator(@Root() post: Post) {
+                return User.findOne({ id: post.creatorId });
+            }
+            
+            //...other resolvers
+
+            @Query(() => PaginatedPosts)
+            async posts(
+                @Arg("limit", () => Int) limit: number,
+                @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+                @Ctx() { req }: MyContext
+            ): Promise<PaginatedPosts> {
+                //Cap it at 50 per page, no matter what the frontend says.
+                const realLimit = Math.min(50, limit);
+                const realLimitPlusOne = realLimit + 1;
+                const replacements: any[] = [realLimitPlusOne];
+                if (req.session.userId) {
+                    replacements.push(req.session.userId);
+                }
+                //Ensure cursorIndex has a value to always make sense in our query
+                let cursorIndex = 3;
+                if (cursor) {
+                    replacements.push(new Date(parseInt(cursor)));
+                    cursorIndex = replacements.length;
+                }
+                const posts = await getConnection().query(
+                    `
+                    select p.*,
+                    ${
+                        req.session.userId
+                        ? `(select value from updoot where "userId" = $2 and "postId" = p.id) "voteStatus"`
+                        : `null as "voteStatus"`
+                    }
+                    from post p
+                    ${cursor ? `where p."createdAt" < $${cursorIndex}` : ""}
+                    order by p."createdAt" DESC
+                    limit $1
+                    `,
+                    replacements
+                );
+
+                console.log("Posts", posts);
+
+                return {
+                    posts: posts.slice(0, realLimit),
+                    hasMore: posts.length === realLimitPlusOne,
+                };
+            }
 
 
+            @Query(() => Post, { nullable: true })
+            post(@Arg("id", () => Int) id: number): Promise<Post | undefined> {
+                //Return user `creator` via simplified left join, from the Post entity @manyToOne creator field
+                return Post.findOne(id);
+            }
+        }
+
+
+29. Adding a dataloader to more efficiently resolve the User on Post creator.
+    1. To backend, add to dependencies 
+        "dataloader": "^2.0.0",
+
+    2. Create backend/src/utils/createLoader.ts :
+        import DataLoader from "dataloader";
+        import { User } from "src/entities/User";
+
+        /**
+        * Return the user for each passed in user id.
+        */
+        export const createUserLoader = () =>
+        new DataLoader<number, User>(async (userIds) => {
+            const users = await User.findByIds(userIds as number[]);
+            const userIdToUser: Record<number, User> = {};
+            users.forEach((user) => (userIdToUser[user.id] = user));
+            return userIds.map((userId) => userIdToUser[userId]);
+        });
+
+    3. Add to backend/src/types and backend/src/index:
+        //backend/src/index
+        const apolloServer = new ApolloServer({
+            schema: await buildSchema({
+                resolvers: [HelloResolver, PostResolver, UserResolver],
+                validate: false,
+            }),
+            context: ({ req, res }) => ({
+                req,
+                res,
+                redis,
+                userLoader: createUserLoader(), //Over here!
+            }),
+        });    
+
+        //backend/src/types
+        import { Request, Response } from "express";
+        import { Redis } from "ioredis";
+        import { createUserLoader } from "./utils/createUserLoader";
+
+        export type MyContext = {
+            req: Request & { session: Express.Session };
+            res: Response;
+            redis: Redis;
+            userLoader: ReturnType<typeof createUserLoader>;
+        };
+
+    4. Make changes to Post field resolver to resolve to creator User.
+        // backend/src/resolvers/post
+        @Resolver(Post)
+        export class PostResolver {
+            //Called every time we get a Post object
+            @FieldResolver(() => String)
+            textSnippet(@Root() root: Post) {
+                return root.text.slice(0, 50);
+            }
+
+            @FieldResolver(() => User)
+            creator(@Root() post: Post, @Ctx() {userLoader}: MyContext) {
+                return userLoader.load(post.creatorId)
+            }
+        }
+
+
+
+On using a dataloader
+- For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.
+
+
+
+A note about updating posts (and entities in general) and the updates to manage from that:
+We don't actually need to implement an updating function on post update, because of the way URQL works. It will just know to update a post following update. This is not so with creation and deletion, but for updating we're all good. Unless we want to override the update, I guess, but that's another conversation.
 
 A note on a SSR request:
 A client-side request, goes straight from browser to GraphQL

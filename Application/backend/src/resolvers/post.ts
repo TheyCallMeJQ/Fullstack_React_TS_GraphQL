@@ -1,4 +1,4 @@
-import { Updoot } from "../entities/Updoot";
+import { User } from "../entities/User";
 import { MyContext } from "src/types";
 import {
   Arg,
@@ -16,8 +16,8 @@ import {
 } from "type-graphql";
 import { getConnection } from "typeorm";
 import { Post } from "../entities/Post";
+import { Updoot } from "../entities/Updoot";
 import { isAuth } from "../middlewares/isAuth";
-import { text } from "express";
 
 @InputType()
 class PostInput {
@@ -43,6 +43,12 @@ export class PostResolver {
     return root.text.slice(0, 50);
   }
 
+  @FieldResolver(() => User)
+  creator(@Root() post: Post, @Ctx() { userLoader }: MyContext) {
+    //Batch calls to get creator User into a single SQL query, where possible (i.e. posts query)
+    return userLoader.load(post.creatorId);
+  }
+
   @Query(() => PaginatedPosts)
   async posts(
     @Arg("limit", () => Int) limit: number,
@@ -65,20 +71,12 @@ export class PostResolver {
     const posts = await getConnection().query(
       `
       select p.*,
-      json_build_object(
-        'id', u.id,
-        'username', u.username,
-        'email', u.email,
-        'createdAt', u."createdAt",
-        'updatedAt', u."updatedAt"
-      ) creator,
       ${
         req.session.userId
           ? `(select value from updoot where "userId" = $2 and "postId" = p.id) "voteStatus"`
           : `null as "voteStatus"`
       }
       from post p
-      inner join public.user u on u.id = p."creatorId"
       ${cursor ? `where p."createdAt" < $${cursorIndex}` : ""}
       order by p."createdAt" DESC
       limit $1
@@ -86,7 +84,7 @@ export class PostResolver {
       replacements
     );
 
-    console.log("Posts", posts);
+    // console.log("Posts", posts);
 
     return {
       posts: posts.slice(0, realLimit),
@@ -97,7 +95,7 @@ export class PostResolver {
   @Query(() => Post, { nullable: true })
   post(@Arg("id", () => Int) id: number): Promise<Post | undefined> {
     //Return user `creator` via simplified left join, from the Post entity @manyToOne creator field
-    return Post.findOne(id, { relations: ["creator"] });
+    return Post.findOne(id);
   }
 
   @Mutation(() => Boolean)

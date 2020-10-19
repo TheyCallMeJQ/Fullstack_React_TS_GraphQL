@@ -58,7 +58,8 @@ const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
             ...values,
           });
           if (error) console.log(`Error in post/edit/${data?.post?.id}`);
-          router.push("/");
+          //Take user back to last page
+          router.back();
         }}
       >
         {({ isSubmitting }) => (
