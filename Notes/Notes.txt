@@ -3546,7 +3546,72 @@ https://formidable.com/open-source/urql/docs/
             }
         }
 
+30. Adding a dataloader to more efficiently resolve the votestatus on Post.
+    1. create updoot loader util (note that this works, we just literally don't have any updoots in our db)
+    //backend/src/utils/createUpdootLoader
+        import DataLoader from "dataloader";
+        import { Updoot } from "../entities/Updoot";
 
+        /**
+        * Return the updoot for each passed in user id and post id.
+        */
+        export const createUpdootLoader = () =>
+        new DataLoader<{ postId: number; userId: number }, Updoot | null>(
+            async (keys) => {
+                console.group("updoot loader");
+                console.log("keys", keys);
+                const updoots = await Updoot.findByIds(keys as any[]);
+                console.log("updoots", updoots);
+                const updootIdToUpdoot: Record<string, Updoot> = {};
+                updoots.forEach((updoot) => {
+                    const key = `${updoot.post.id}|${updoot.user.id}`;
+                    updootIdToUpdoot[key] = updoot;
+                });
+                // console.log("userIdToUser", userIdToUser);
+                const sortedUpdootObjects = keys.map(
+                    (key) => updootIdToUpdoot[`${key.postId}|${key.userId}`]
+                );
+                // console.log("result", result);
+
+                console.groupEnd();
+                return sortedUpdootObjects;
+            }
+        );
+
+    2. Remove `voteStatus` from Post resolvers `posts` query SQL, among other adjustments.
+        @Query(() => PaginatedPosts)
+        async posts(
+            @Arg("limit", () => Int) limit: number,
+            @Arg("cursor", () => String, { nullable: true }) cursor: string | null,
+            @Ctx() { req }: MyContext
+        ): Promise<PaginatedPosts> {
+            //Cap it at 50 per page, no matter what the frontend says.
+            const realLimit = Math.min(50, limit);
+            const realLimitPlusOne = realLimit + 1;
+            const replacements: any[] = [realLimitPlusOne];
+            if (cursor) {
+                replacements.push(new Date(parseInt(cursor)));
+            }
+            const posts = await getConnection().query(
+                `
+                select p.*
+                from post p
+                ${cursor ? `where p."createdAt" < $2` : ""}
+                order by p."createdAt" DESC
+                limit $1
+                `,
+                replacements
+            );
+
+            return {
+                posts: posts.slice(0, realLimit),
+                hasMore: posts.length === realLimitPlusOne,
+            };
+        }
+
+    3. Add updootLoader to our context in backend/src/index.
+    4. Add updootLoader as a type in our backend/src/types file.
+    5. Add to Post resolver `voteStatus` field resolver
 
 On using a dataloader
 - For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.
