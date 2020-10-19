@@ -3610,13 +3610,67 @@ https://formidable.com/open-source/urql/docs/
         }
 
     3. Add updootLoader to our context in backend/src/index.
+
+        const apolloServer = new ApolloServer({
+            schema: await buildSchema({
+                resolvers: [HelloResolver, PostResolver, UserResolver],
+                validate: false,
+            }),
+            context: ({ req, res }) => ({
+                req,
+                res,
+                redis,
+                userLoader: createUserLoader(),
+                updootLoader: createUpdootLoader(),
+            }),
+        });
+
     4. Add updootLoader as a type in our backend/src/types file.
+        import { Request, Response } from "express";
+        import { Redis } from "ioredis";
+        import { createUpdootLoader } from "./utils/createUpdootLoader";
+        import { createUserLoader } from "./utils/createUserLoader";
+
+        export type MyContext = {
+            req: Request & { session: Express.Session };
+            res: Response;
+            redis: Redis;
+            userLoader: ReturnType<typeof createUserLoader>;
+            updootLoader: ReturnType<typeof createUpdootLoader>;
+        };
+
+
     5. Add to Post resolver `voteStatus` field resolver
+        //backend/src/resolvers/post
+        @FieldResolver(() => Int, { nullable: true })
+        async voteStatus(
+            @Root() post: Post,
+            @Ctx() { updootLoader, req }: MyContext
+        ) {
+            //If the user is not signed in, return null
+            if (!req.session.userId) return null;
+
+            //Batch queries to updoot together if we make many at once.
+            const updoot = await updootLoader.load({
+                postId: post.id,
+                userId: req.session.userId,
+            });
+            return updoot ? updoot.value : null;
+        }
+
 
 On using a dataloader
 - For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.
 
+A note on field resolvers:
+Field resolvers don't get called unless they're a part of the query. So for instance, say we have a field resolver
 
+    @FieldResolver(() => String)
+    textSnippet(@Root() root: Post) {
+        return root.text.slice(0, 50);
+    }
+
+part of the Post resolver. Then is we're querying for a post, and we leave the textSnippet field out of the query, then this field resolver won't be called.
 
 A note about updating posts (and entities in general) and the updates to manage from that:
 We don't actually need to implement an updating function on post update, because of the way URQL works. It will just know to update a post following update. This is not so with creation and deletion, but for updating we're all good. Unless we want to override the update, I guess, but that's another conversation.
