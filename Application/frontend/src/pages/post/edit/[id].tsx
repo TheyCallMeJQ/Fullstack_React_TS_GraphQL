@@ -5,10 +5,7 @@ import { useRouter } from "next/router";
 import React from "react";
 import { InputField } from "../../../components/InputField";
 import { Layout } from "../../../components/Layout";
-import {
-  usePostQuery,
-  useUpdatePostMutation,
-} from "../../../generated/graphql";
+import { useUpdatePostMutation } from "../../../generated/graphql";
 import { createUrqlClient } from "../../../utils/createUrqlClient";
 import { useGetPostFromUrl } from "../../../utils/useGetPostFromUrl";
 
@@ -16,7 +13,7 @@ interface UpdatePostProps {}
 
 const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
   const router = useRouter();
-  const [{ fetching, data, error, intId }] = useGetPostFromUrl();
+  const [{ fetching, data, error }] = useGetPostFromUrl();
   const [, updatePost] = useUpdatePostMutation();
   console.group("page update-post");
   // console.log(`Received id ${router.query.id}`);
@@ -51,7 +48,8 @@ const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
           title: data?.post?.title,
           text: data?.post?.text,
         }}
-        onSubmit={async (values, { setErrors }) => {
+        // onSubmit={async (values, { setErrors }) => {
+        onSubmit={async (values) => {
           //Errors are automatically handled by errorExchange on urql client.
           const { error } = await updatePost({
             id: data?.post?.id as any,

@@ -1,4 +1,4 @@
-import { Box, Flex, Heading } from "@chakra-ui/core";
+import { Box, Heading } from "@chakra-ui/core";
 import { withUrqlClient } from "next-urql";
 import React from "react";
 import { EditDeletePostButtons } from "../../components/EditDeletePostButtons";

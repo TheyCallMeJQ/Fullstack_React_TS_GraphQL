@@ -16,7 +16,8 @@ const ForgotPassword: React.FC<{}> = ({}) => {
     <Wrapper variant="small">
       <Formik
         initialValues={{ email: "" }}
-        onSubmit={async (values, { setErrors }) => {
+        // onSubmit={async (values, { setErrors }) => {
+        onSubmit={async (values) => {
           //return promise to end spinner on resolve
           const response = await forgotPassword({ email: values.email });
           console.log("response", response);

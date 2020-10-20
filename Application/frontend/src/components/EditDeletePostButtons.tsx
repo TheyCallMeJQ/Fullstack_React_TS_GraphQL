@@ -2,7 +2,6 @@ import { Box, IconButton, Link as ChakraLink } from "@chakra-ui/core";
 import NextLink from "next/link";
 import React from "react";
 import { useDeletePostMutation, useMeQuery } from "../generated/graphql";
-import { Layout } from "./Layout";
 
 /**
  * @param id The post's id
