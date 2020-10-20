@@ -3765,6 +3765,77 @@ https://formidable.com/open-source/urql/docs/
 1. Set up VPS
     1. If you don't have one already, create a new account with these people https://cloud.digitalocean.com/projects/09074ea5-2afc-4960-aa1e-050e7af976b0/resources?i=cfff45. Do their welcome thing, and then destroy the droplet they force you to create with their fucking welcome.
     2. To the left in the Projects tab, select the empty project, and select "get started with a droplet". Under "Choose an Image" > Marketplace, and search for "Dokku". Click "App detail page" and you will be taken to a page which will allow you to create a dokku droplet.
+    3. Fill out the form, create an SSH key if necessary, follow their instructions on this (you really just need to copy the contents of the /Users/jq/.ssh/id_rsa.pub file into the appropriate field, the SSH key name is up to you, it doesn't matter so much). Create the droplet.
+    4. Open up the droplet and select the "Copy" option of the ipv4 (142.93.8.164 in my case) and navigate to that address via the browser. Once there, enable "use virtualhost naming for apps" and finish the setup.
+    5. Open up terminal and SSH into VPS:
+        jq@JacquesippesAir ~ % ssh root@142.93.8.164
+        The authenticity of host '142.93.8.164 (142.93.8.164)' can't be established.
+        ECDSA key fingerprint is SHA256:QwFoo309MOuksYUq5g7rX1vJgEvh5505U69SONx6g10.
+        Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+    We are now SSH'd into VPS.
+    6. ??
+        1. Create an app (we're going to start with our backend)
+            root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku apps:create api
+            -----> Creating api...
+        2. Install postgres plugin (see https://github.com/dokku/dokku-postgres)
+            root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# sudo dokku plugin:install https://github.com/dokku/dokku-postgres.git
+            -----> Cloning plugin repo https://github.com/dokku/dokku-postgres.git to /var/lib/dokku/plugins/available/postgres
+            Cloning into 'postgres'...
+            //lots of output
+        3.  # create a postgres service with the name hummus, because why not
+            dokku postgres:create hummus
+        4. Link our postgres service to our app.
+            # each official datastore offers a `link` method to link a service to any application
+            # dokku postgres:link [db name] [app name]
+            dokku postgres:link hummus api
+        5. Repeat steps 2-4 above, for redis (https://github.com/dokku/dokku-redis). So:
+            a. Install redis plugin: 
+                root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# sudo dokku plugin:install https://github.com/dokku/dokku-redis.git redis
+            b. Create redis service:
+                root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku redis:create olive
+            c. Link redis service:
+                root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku redis:link olive api
+        6. Ensure we have docker installed 
+            root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# docker -v
+        7. Verify our services are properly linked to our docker instance:
+            root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# docker container list
+            CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS              PORTS               NAMES
+            2f5927995ff7        redis:5.0.7         "docker-entrypoint.s…"   About a minute ago   Up About a minute   6379/tcp            dokku.redis.olive
+            07b118837942        postgres:11.6       "docker-entrypoint.s…"   7 minutes ago        Up 7 minutes        5432/tcp            dokku.postgres.hummus
+        Notice in the above we should see both our postgres service running, as well as our redis service.
+
+    7. Set up our application to be able to use the VPS, we can use Docker for this. We're gonna be starting from https://nodejs.org/en/docs/guides/nodejs-docker-webapp/#creating-a-dockerfile for this section. Note there's stuff above the section this link leads to, but our project thus far includes everything they talk about in those sections (i.e. express, package.json, etc.)
+        1. Create `Dockerfile` in backend/ root, with the following:
+            //backend/Dockerfile
+            FROM node:12
+
+            # Create app directory
+            WORKDIR /usr/src/app
+
+            # Install app dependencies
+            # A wildcard is used to ensure both package.json AND package-lock.json are copied
+            # where available (npm@5+)
+            COPY package*.json ./
+
+            RUN npm install
+            # If you are building your code for production
+            # RUN npm ci --only=production
+
+            # Bundle app source
+            COPY . .
+
+            EXPOSE 8080
+            CMD [ "node", "server.js" ]
+
+            
+
+
+
+
+
+
+
+
 2. Set up Dokku on our VPS
 
 We're gonna be using Dokku, which is like a self-hosted heroku. Why Dokku? Good price for good quality.
