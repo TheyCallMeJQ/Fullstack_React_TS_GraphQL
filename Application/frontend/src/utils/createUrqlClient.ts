@@ -1,4 +1,4 @@
-import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
+import { Cache, cacheExchange, Resolver } from "@urql/exchange-graphcache";
 import gql from "graphql-tag";
 import Router from "next/router";
 import {
@@ -72,6 +72,19 @@ const errorExchange: Exchange = ({ forward }) => (ops$) => {
   );
 };
 
+const invalidateAllPosts = (cache: Cache) => {
+  console.group("createUrqlClient updates createPost");
+  // console.log(cache.inspectFields("Query"));
+  const allFields = cache.inspectFields("Query");
+  const fieldInfos = allFields.filter((info) => info.fieldName === "posts");
+  fieldInfos.forEach((fI) => {
+    cache.invalidate("Query", "posts", fI.arguments || {});
+  });
+
+  // console.log(cache.inspectFields("Query"));
+  console.groupEnd();
+};
+
 export const createUrqlClient = (ssrExchange: any, ctx: any) => {
   let cookie = "";
   //only execute this code on the server
@@ -122,7 +135,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
                 `,
                 { id: postId } as any
               );
-              console.log("data", data);
+              // console.log("data", data);
 
               if (data) {
                 //If the user already voted, and chose the same vote
@@ -150,18 +163,10 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
               console.groupEnd();
             },
             createPost: (_, __, cache, ___) => {
-              console.group("createUrqlClient updates createPost");
-              // console.log(cache.inspectFields("Query"));
-              const allFields = cache.inspectFields("Query");
-              const fieldInfos = allFields.filter(
-                (info) => info.fieldName === "posts"
-              );
-              fieldInfos.forEach((fI) => {
-                cache.invalidate("Query", "posts", fI.arguments || {});
-              });
-
-              // console.log(cache.inspectFields("Query"));
-              console.groupEnd();
+              // console.group("createUrqlClient updates createPost");
+              //invalidate query on create post, to force re-fetch
+              invalidateAllPosts(cache);
+              // console.groupEnd();
             },
             logout: (result, _, cache, __) => {
               betterUpdateQuery<LogoutMutation, MeQuery>(
@@ -187,6 +192,8 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
                   };
                 }
               );
+              //invalidate query on login, to force re-fetch
+              invalidateAllPosts(cache);
             },
             register: (result, _, cache, __) => {
               betterUpdateQuery<RegisterMutation, MeQuery>(

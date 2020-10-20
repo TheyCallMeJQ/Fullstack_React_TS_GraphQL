@@ -3658,6 +3658,36 @@ https://formidable.com/open-source/urql/docs/
             return updoot ? updoot.value : null;
         }
 
+31. Force consistent state through logout by forcing a reload on logout.
+    1. Modify Navbar frontend component such that logout also causes reload.
+    //frontend/src/components/NavBar
+        //user is logged in
+        else {
+            body = (
+            <Flex align="center">
+                <NextLink href="/create-post">
+                <Button as={ChakraLink} mr={4}>
+                    Create post
+                </Button>
+                </NextLink>
+                <Box mr={2}>{data?.me?.username}</Box>
+                <Button
+                isLoading={logoutFetching}
+                variant="link"
+                onClick={async () => {
+                    await logout();
+                    router.reload();
+                }}
+                >
+                Logout
+                </Button>
+            </Flex>
+            );
+        }
+
+
+32. Force consistent state on login by invalidating the posts.
+    1. Modify createUrqlClient such that we invalidate posts in cache on login        
 
 On using a dataloader
 - For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.

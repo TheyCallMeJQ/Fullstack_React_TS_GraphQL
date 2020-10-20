@@ -28,15 +28,17 @@ const Index = () => {
     variables,
   });
 
-  // console.log("data", postsData);
+  console.log("data", postsData);
 
   if (postsError || (!postsData && !fetchingPosts))
     return (
       <div>
-        <h2>Failed query</h2>
+        <h1>Failed query</h1>
         <div>{postsError?.message}</div>
       </div>
     );
+
+  // console.log("posts", postsData?.posts);
 
   console.groupEnd();
 
