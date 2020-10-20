@@ -73,7 +73,7 @@ const errorExchange: Exchange = ({ forward }) => (ops$) => {
 };
 
 const invalidateAllPosts = (cache: Cache) => {
-  console.group("createUrqlClient updates createPost");
+  console.group("createUrqlClent invalidateAllPosts");
   // console.log(cache.inspectFields("Query"));
   const allFields = cache.inspectFields("Query");
   const fieldInfos = allFields.filter((info) => info.fieldName === "posts");
@@ -193,7 +193,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
                 }
               );
               //invalidate query on login, to force re-fetch
-              invalidateAllPosts(cache);
+              // invalidateAllPosts(cache);
             },
             register: (result, _, cache, __) => {
               betterUpdateQuery<RegisterMutation, MeQuery>(
