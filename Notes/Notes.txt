@@ -3761,8 +3761,13 @@ https://formidable.com/open-source/urql/docs/
             }
         }
 
-33. deploy
+33. deploy [11:44:00]
+1. Set up VPS
+    1. If you don't have one already, create a new account with these people https://cloud.digitalocean.com/projects/09074ea5-2afc-4960-aa1e-050e7af976b0/resources?i=cfff45. Do their welcome thing, and then destroy the droplet they force you to create with their fucking welcome.
+    2. To the left in the Projects tab, select the empty project, and select "get started with a droplet". Under "Choose an Image" > Marketplace, and search for "Dokku". Click "App detail page" and you will be taken to a page which will allow you to create a dokku droplet.
+2. Set up Dokku on our VPS
 
+We're gonna be using Dokku, which is like a self-hosted heroku. Why Dokku? Good price for good quality.
 
 On using a dataloader
 - For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.
