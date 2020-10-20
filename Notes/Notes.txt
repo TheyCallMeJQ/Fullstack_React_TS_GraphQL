@@ -3687,11 +3687,82 @@ https://formidable.com/open-source/urql/docs/
 
 
 32. Force consistent state on login by invalidating the posts.
-    1. Modify createUrqlClient such that we invalidate posts in cache on login
+    1. Modify createUrqlClient such that we invalidate posts query in cache on login. We do the same functionality for createPosts mutation success.
+        a. create function invalidatePostsQuery
+            //frontend/src/utils/createUrqlClent
+            const invalidateAllPosts = (cache: Cache) => {
+                console.group("createUrqlClent invalidateAllPosts");
+                // console.log(cache.inspectFields("Query"));
+                const allFields = cache.inspectFields("Query");
+                const fieldInfos = allFields.filter((info) => info.fieldName === "posts");
+                fieldInfos.forEach((fI) => {
+                    cache.invalidate("Query", "posts", fI.arguments || {});
+                });
 
-Bugs:
-- A user's updoots don't seem to persist on refresh (the value on the post persists, but the color display no longer shows)
-- login doesn't work on the first try, reload is needed, and the posts query fails for a second before working.
+                // console.log(cache.inspectFields("Query"));
+                console.groupEnd();
+            };
+        b. implement function in createPost and login updates of the createUrqlClient
+
+        export const createUrqlClient = (ssrExchange: any, ctx: any) => {
+            let cookie = "";
+            //only execute this code on the server
+            if (isServer()) {
+                // Intercept our request coming from client-side, passing through our NextJS Server
+                // Ensure the cookie makes it to the GraphQL API by including it in our headers, below
+                cookie = ctx?.req?.headers?.cookie;
+            }
+            return {
+                url: "http://localhost:4000/graphql",
+                fetchOptions: {
+                    credentials: "include" as const,
+                    headers: cookie ? { cookie } : undefined,
+                },
+                exchanges: [
+                    dedupExchange,
+                    cacheExchange({
+                        keys: {
+                            PaginatedPosts: () => null,
+                        },
+                        resolvers: {
+                            Query: {
+                                posts: cursorPagination(),
+                            },
+                        },
+                        updates: {
+                            Mutation: {
+                                createPost: (_, __, cache, ___) => {
+                                    // console.group("createUrqlClient updates createPost");
+                                    //invalidate query on create post, to force re-fetch
+                                    invalidateAllPosts(cache);
+                                    // console.groupEnd();
+                                },
+                                login: (result, _, cache, __) => {
+                                    betterUpdateQuery<LoginMutation, MeQuery>(
+                                    cache,
+                                    { query: MeDocument },
+                                    result,
+                                    (newQueryResult, lastQueryResult) => {
+                                        if (newQueryResult.login.errors) {
+                                            return lastQueryResult;
+                                        }
+                                        return {
+                                            me: newQueryResult.login.user,
+                                        };
+                                    });
+                                    //invalidate query on login, to force re-fetch
+                                    invalidateAllPosts(cache);
+                                },
+                                //other updates...
+                            }
+                        }
+                    })
+                ]
+            }
+        }
+
+33. deploy
+
 
 On using a dataloader
 - For every field we want to optimize in this same way that we're planning to resolve the user on Post, we need to create a loader.
