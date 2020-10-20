@@ -193,7 +193,7 @@ export const createUrqlClient = (ssrExchange: any, ctx: any) => {
                 }
               );
               //invalidate query on login, to force re-fetch
-              // invalidateAllPosts(cache);
+              invalidateAllPosts(cache);
             },
             register: (result, _, cache, __) => {
               betterUpdateQuery<RegisterMutation, MeQuery>(
