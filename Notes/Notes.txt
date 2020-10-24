@@ -4277,6 +4277,91 @@ Don't forget to run
     chmod +x deploy.sh
 to make our shell script executable. And execute the script by just calling it in terminal.    
 
+At this point we've finished the tutorial and we've gonna make the switch to Apollo client on our local project. 13:04:45
+
+Switching URQL -> ApolloServer (And seeing how we feel about it)
+First, some setup
+1. Start running our frontend and backend
+    a. frontend:
+        `yarn dev`
+    b. backend:
+        `yarn watch`
+        `yarn start`
+2. Have our backend use the last db (not the blank one we used for deployment)
+    a. Open backend .env file
+    b. Modify DATABASE_URL to the following (old value was lireddit2)
+        DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lireddit
+    c. Open backend ./index.ts, and comment out the migrations
+        //other things in index.ts
+        const main = async () => {
+            const connection = await createConnection({
+                type: "postgres",
+                url: process.env.DATABASE_URL,
+                logging: true,
+                migrations: [path.join(__dirname, "./migrations/*")],
+                entities: [User, Post, Updoot],
+            });
+            //Run any un-run migrations
+            // await connection.runMigrations();
+            
+            //...other things in main()
+        }
+Next, https://www.apollographql.com/docs/react/get-started/
+1. To frontend install:
+    "@apollo/client": "^3.2.5",
+    "graphql": "^15.3.0",
+    (Though we should have graphql already)    
+2. Create Apollo client, pass to apollo provider, wrap the app with the provider.
+    a. add client def'n from docs to _app page:
+        import { ApolloClient, InMemoryCache, ApolloProvider } from "@apollo/client";
+        import { CSSReset, ThemeProvider } from "@chakra-ui/core";
+        import theme from "../theme";
+
+        const client = new ApolloClient({
+            uri: process.env.NEXT_PUBLIC_API_URL as string,
+            cache: new InMemoryCache(),
+            credentials: "include",
+        });
+
+        function MyApp({ Component, pageProps }: any) {
+            return (
+                <ApolloProvider client={client}>
+                <ThemeProvider theme={theme}>
+                    <CSSReset />
+                    <Component {...pageProps} />
+                </ThemeProvider>
+                </ApolloProvider>
+            );
+        }
+
+        export default MyApp;
+
+So something that was great about URQL is that we were getting custom hooks for our queries and mutations. We can still do this, only we need to use the typescript-react-apollo graphql code generator package (https://graphql-code-generator.com/docs/plugins/typescript-react-apollo).
+Installing the GraphQL Code generator plugin:
+1. Install to devDependencies
+    "@graphql-codegen/typescript-react-apollo": "^2.0.7",
+2. Change frontend/codegen.yml to the following (the change we're making is typescript-urql -> typescript-react-apollo):
+    overwrite: true
+    schema: "http://localhost:4000/graphql"
+    documents: "src/graphql/**/*.graphql"
+    generates:
+    src/generated/graphql.tsx:
+        plugins:
+        - "typescript"
+        - "typescript-operations"
+        - "typescript-react-apollo"
+
+At this point, all we need to do if we want our custom hooks to be generated from our graphql is run the classic `yarn gen`, same as before, so we're staying consistent, which is nifty.
+Small changes to keep in mind:
+    - any Query apollo-generated GraphQL returns an object, not an array, and the URQL `fetching` property is called `loading`.
+    - we no longer need to wrap each of our pages with our createUrqlClent HOC, because now our whole app is just wrapped by the Apollo Provider
+    - Apollo returns objects from their mutation hooks in the reverse order of URQL [mutation, variables], instead of [variables, mutation]
+    - instead of 'pause' as an option on queries for URQL, in Apollo they call it 'skip'
+    - aside from the above, 99% of the code stays the same.
+
+
+
+
 
 
 We're gonna be using Dokku, which is like a self-hosted heroku. Why Dokku? Good price for good quality.

@@ -7,14 +7,14 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/core";
-import { withUrqlClient } from "next-urql";
+// import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
 import React, { useState } from "react";
 import { EditDeletePostButtons } from "../components/EditDeletePostButtons";
 import { Layout } from "../components/Layout";
 import { UpdootSection } from "../components/UpdootSection";
 import { usePostsQuery } from "../generated/graphql";
-import { createUrqlClient } from "../utils/createUrqlClient";
+// import { createUrqlClient } from "../utils/createUrqlClient";
 
 const Index = () => {
   console.group("index page");
@@ -22,15 +22,17 @@ const Index = () => {
     limit: 15,
     cursor: null as null | string,
   });
-  const [
-    { error: postsError, data: postsData, fetching: fetchingPosts },
-  ] = usePostsQuery({
+  const {
+    error: postsError,
+    data: postsData,
+    loading: loadingPosts,
+  } = usePostsQuery({
     variables,
   });
 
   console.log("data", postsData);
 
-  if (postsError || (!postsData && !fetchingPosts))
+  if (postsError || (!postsData && !loadingPosts))
     return (
       <div>
         <h1>Failed query</h1>
@@ -42,7 +44,7 @@ const Index = () => {
 
   console.groupEnd();
 
-  return !postsData && fetchingPosts ? (
+  return !postsData && loadingPosts ? (
     <div>Loading...</div>
   ) : (
     <Layout>
@@ -83,7 +85,7 @@ const Index = () => {
                     .createdAt,
               })
             }
-            isLoading={fetchingPosts}
+            isLoading={loadingPosts}
             m="auto"
             my={8}
           >
@@ -95,4 +97,4 @@ const Index = () => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: true })(Index);
+export default Index;

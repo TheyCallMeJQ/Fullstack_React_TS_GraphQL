@@ -20,11 +20,11 @@ export const EditDeletePostButtons: React.FC<EditDeletePostButtonsProps> = ({
   id,
   creatorId,
 }) => {
-  const [{ data: meData, fetching: fetchingMe }] = useMeQuery();
-  const [, deletePost] = useDeletePostMutation();
+  const { data: meData, loading: loadingMe } = useMeQuery();
+  const [deletePost] = useDeletePostMutation();
 
   //return null if the current user is not authorized to make modifications to this post
-  if (fetchingMe || meData?.me === null || meData?.me?.id !== creatorId) {
+  if (loadingMe || meData?.me === null || meData?.me?.id !== creatorId) {
     return null;
   }
 
@@ -36,7 +36,7 @@ export const EditDeletePostButtons: React.FC<EditDeletePostButtonsProps> = ({
       <IconButton
         icon="delete"
         aria-label="Delete post"
-        onClick={() => deletePost({ id })}
+        onClick={() => deletePost({ variables: { id } })}
       />
     </Box>
   );
