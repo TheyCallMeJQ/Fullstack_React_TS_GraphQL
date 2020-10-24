@@ -5,8 +5,8 @@ import { Wrapper } from "../components/Wrapper";
 import { InputField } from "../components/InputField";
 import { useLoginMutation } from "../generated/graphql";
 import { toErrorMap } from "../utils/toErrorMap";
-import { withUrqlClient } from "next-urql";
-import { createUrqlClient } from "../utils/createUrqlClient";
+// import { withUrqlClient } from "next-urql";
+// import { createUrqlClient } from "../utils/createUrqlClient";
 import { useRouter } from "next/router";
 
 import NextLink from "next/link";
@@ -14,7 +14,7 @@ import NextLink from "next/link";
 interface registerProps {}
 
 const Login: React.FC<registerProps> = ({}) => {
-  const [, login] = useLoginMutation();
+  const [login] = useLoginMutation();
   const router = useRouter();
 
   return (
@@ -23,16 +23,19 @@ const Login: React.FC<registerProps> = ({}) => {
         initialValues={{ usernameOrEmail: "", password: "" }}
         onSubmit={async (values, { setErrors }) => {
           //return promise to end spinner on resolve
-          const response = await login(values);
+          const { data, errors } = await login({ variables: values });
           // console.log("response", response);
           // console.log("errors", response.data?.login.errors);
+          if (errors) {
+            console.log("Something went wrong with the query");
+          }
 
-          if (response.data?.login.errors) {
-            const map = toErrorMap(response.data?.login.errors);
+          if (data?.login.errors) {
+            const map = toErrorMap(data?.login.errors);
             // console.log("error map", map);
 
             setErrors(map);
-          } else if (response.data?.login.user) {
+          } else if (data?.login.user) {
             //Redirect the user on successful registration
             if (typeof router.query.next === "string") {
               router.push(router.query.next);
@@ -77,4 +80,4 @@ const Login: React.FC<registerProps> = ({}) => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: false })(Login);
+export default Login;

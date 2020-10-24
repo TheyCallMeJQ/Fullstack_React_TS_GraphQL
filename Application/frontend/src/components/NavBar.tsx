@@ -8,7 +8,7 @@ import {
 import NextLink from "next/link";
 import React from "react";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
-import { useRouter } from "next/router";
+// import { useRouter } from "next/router";
 import { isServer } from "../utils/isServer";
 import { useApolloClient } from "@apollo/client";
 

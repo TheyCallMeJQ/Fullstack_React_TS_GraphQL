@@ -5,14 +5,14 @@ import { Wrapper } from "../components/Wrapper";
 import { InputField } from "../components/InputField";
 import { useRegisterMutation } from "../generated/graphql";
 import { toErrorMap } from "../utils/toErrorMap";
-import { withUrqlClient } from "next-urql";
-import { createUrqlClient } from "../utils/createUrqlClient";
+// import { withUrqlClient } from "next-urql";
+// import { createUrqlClient } from "../utils/createUrqlClient";
 import { useRouter } from "next/router";
 
 interface registerProps {}
 
 const Register: React.FC<registerProps> = ({}) => {
-  const [, register] = useRegisterMutation();
+  const [register] = useRegisterMutation();
   const router = useRouter();
 
   return (
@@ -21,10 +21,12 @@ const Register: React.FC<registerProps> = ({}) => {
         initialValues={{ username: "", password: "", email: "" }}
         onSubmit={async (values, { setErrors }) => {
           //return promise to end spinner on resolve
-          const response = await register({ input: values });
-          if (response.data?.register.errors) {
-            setErrors(toErrorMap(response.data.register.errors));
-          } else if (response.data?.register.user) {
+          const { data } = await register({
+            variables: { input: values },
+          });
+          if (data?.register.errors) {
+            setErrors(toErrorMap(data.register.errors));
+          } else if (data?.register.user) {
             //Redirect the user on successful registration
             router.push("/");
           }
@@ -63,4 +65,4 @@ const Register: React.FC<registerProps> = ({}) => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: false })(Register);
+export default Register;

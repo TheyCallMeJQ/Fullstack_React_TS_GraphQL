@@ -1,6 +1,6 @@
 import React from "react";
-import { createUrqlClient } from "../utils/createUrqlClient";
-import { withUrqlClient } from "next-urql";
+// import { createUrqlClient } from "../utils/createUrqlClient";
+// import { withUrqlClient } from "next-urql";
 import { Box, Button } from "@chakra-ui/core";
 import { Formik, Form } from "formik";
 import { InputField } from "../components/InputField";
@@ -11,7 +11,7 @@ import { useState } from "react";
 
 const ForgotPassword: React.FC<{}> = ({}) => {
   const [isComplete, setIsComplete] = useState(false);
-  const [, forgotPassword] = useForgotPasswordMutation();
+  const [forgotPassword] = useForgotPasswordMutation();
   return (
     <Wrapper variant="small">
       <Formik
@@ -19,7 +19,9 @@ const ForgotPassword: React.FC<{}> = ({}) => {
         // onSubmit={async (values, { setErrors }) => {
         onSubmit={async (values) => {
           //return promise to end spinner on resolve
-          const response = await forgotPassword({ email: values.email });
+          const response = await forgotPassword({
+            variables: values,
+          });
           console.log("response", response);
 
           setIsComplete(true);
@@ -52,4 +54,4 @@ const ForgotPassword: React.FC<{}> = ({}) => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: true })(ForgotPassword);
+export default ForgotPassword;

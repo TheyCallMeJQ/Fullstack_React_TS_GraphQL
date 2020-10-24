@@ -13,21 +13,21 @@ interface UpdatePostProps {}
 
 const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
   const router = useRouter();
-  const [{ fetching, data, error }] = useGetPostFromUrl();
-  const [, updatePost] = useUpdatePostMutation();
+  const [{ loading, data, error }] = useGetPostFromUrl();
+  const [updatePost] = useUpdatePostMutation();
   console.group("page update-post");
   // console.log(`Received id ${router.query.id}`);
 
   console.groupEnd();
 
-  if (fetching)
+  if (loading)
     return (
       <Layout>
         <Box>Loading...</Box>
       </Layout>
     );
 
-  if (!fetching && !data?.post)
+  if (!loading && !data?.post)
     return (
       <Layout>
         <Box>Could not find post</Box>
@@ -51,11 +51,13 @@ const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
         // onSubmit={async (values, { setErrors }) => {
         onSubmit={async (values) => {
           //Errors are automatically handled by errorExchange on urql client.
-          const { error } = await updatePost({
-            id: data?.post?.id as any,
-            ...values,
+          const { errors } = await updatePost({
+            variables: {
+              id: data?.post?.id as any,
+              ...values,
+            },
           });
-          if (error) console.log(`Error in post/edit/${data?.post?.id}`);
+          if (errors) console.log(`Error in post/edit/${data?.post?.id}`);
           //Take user back to last page
           router.back();
         }}
@@ -86,4 +88,4 @@ const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
   );
 };
 
-export default withUrqlClient(createUrqlClient, { ssr: true })(UpdatePost);
+export default UpdatePost;

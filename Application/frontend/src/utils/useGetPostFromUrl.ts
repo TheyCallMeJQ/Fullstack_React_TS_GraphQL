@@ -9,13 +9,13 @@ export const useGetPostFromUrl = () => {
     typeof router.query.id === "string" ? parseInt(router.query.id) : -1;
 
   const resArr = usePostQuery({
-    pause: intId === -1, //pause the query for bad input id
+    skip: intId === -1, //pause the query for bad input id
     variables: { id: intId },
   });
   return [
     {
       intId,
-      ...resArr[0],
+      ...resArr,
     },
   ];
 };
