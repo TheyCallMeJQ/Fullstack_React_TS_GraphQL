@@ -7,27 +7,29 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/core";
-// import { withUrqlClient } from "next-urql";
 import NextLink from "next/link";
-import React, { useState } from "react";
+import React from "react";
 import { EditDeletePostButtons } from "../components/EditDeletePostButtons";
 import { Layout } from "../components/Layout";
 import { UpdootSection } from "../components/UpdootSection";
 import { usePostsQuery } from "../generated/graphql";
-// import { createUrqlClient } from "../utils/createUrqlClient";
+import { withApollo } from "../utils/withApollo";
 
 const Index = () => {
   console.group("index page");
-  const [variables, setVariables] = useState({
-    limit: 15,
-    cursor: null as null | string,
-  });
   const {
     error: postsError,
     data: postsData,
     loading: loadingPosts,
+    fetchMore: fetchMorePosts,
+    variables: fetchMoreVariables,
   } = usePostsQuery({
-    variables,
+    variables: {
+      limit: 15,
+      cursor: null as null | string,
+    },
+    //allow me to see when it's loading
+    notifyOnNetworkStatusChange: true,
   });
 
   console.log("data", postsData);
@@ -40,7 +42,7 @@ const Index = () => {
       </div>
     );
 
-  // console.log("posts", postsData?.posts);
+  console.log("posts", postsData?.posts);
 
   console.groupEnd();
 
@@ -78,11 +80,13 @@ const Index = () => {
         <Flex>
           <Button
             onClick={() =>
-              setVariables({
-                limit: variables.limit,
-                cursor:
-                  postsData.posts.posts[postsData.posts.posts.length - 1]
-                    .createdAt,
+              fetchMorePosts({
+                variables: {
+                  limit: fetchMoreVariables?.limit,
+                  cursor:
+                    postsData.posts.posts[postsData.posts.posts.length - 1]
+                      .createdAt,
+                },
               })
             }
             isLoading={loadingPosts}
@@ -97,4 +101,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default withApollo({ ssr: true })(Index);

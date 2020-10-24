@@ -12,10 +12,6 @@ interface EditDeletePostButtonsProps {
   creatorId: number;
 }
 
-/**
- * Hello?
- * @param param0
- */
 export const EditDeletePostButtons: React.FC<EditDeletePostButtonsProps> = ({
   id,
   creatorId,
@@ -36,7 +32,12 @@ export const EditDeletePostButtons: React.FC<EditDeletePostButtonsProps> = ({
       <IconButton
         icon="delete"
         aria-label="Delete post"
-        onClick={() => deletePost({ variables: { id } })}
+        onClick={() =>
+          deletePost({
+            variables: { id },
+            update: (cache) => cache.evict({ id: `Post:${id}` }),
+          })
+        }
       />
     </Box>
   );

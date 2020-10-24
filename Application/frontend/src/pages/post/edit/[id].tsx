@@ -8,6 +8,7 @@ import { Layout } from "../../../components/Layout";
 import { useUpdatePostMutation } from "../../../generated/graphql";
 import { createUrqlClient } from "../../../utils/createUrqlClient";
 import { useGetPostFromUrl } from "../../../utils/useGetPostFromUrl";
+import { withApollo } from "../../../utils/withApollo";
 
 interface UpdatePostProps {}
 
@@ -88,4 +89,4 @@ const UpdatePost: React.FC<UpdatePostProps> = ({}) => {
   );
 };
 
-export default UpdatePost;
+export default withApollo({ ssr: true })(UpdatePost);

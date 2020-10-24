@@ -6,14 +6,19 @@ import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { InputField } from "../../components/InputField";
 import { Wrapper } from "../../components/Wrapper";
-import { useChangePasswordMutation } from "../../generated/graphql";
+import {
+  MeDocument,
+  MeQuery,
+  useChangePasswordMutation,
+} from "../../generated/graphql";
 import { toErrorMap } from "../../utils/toErrorMap";
+import { withApollo } from "../../utils/withApollo";
 
 const ChangePassword: NextPage<{}> = () => {
   const [tokenError, setTokenError] = useState("");
   const [changePassword] = useChangePasswordMutation();
   const router = useRouter();
-  console.log("tokenError", tokenError);
+  // console.log("tokenError", tokenError);
   return (
     <Wrapper variant="small">
       <Formik
@@ -28,7 +33,18 @@ const ChangePassword: NextPage<{}> = () => {
                   ? router.query.token
                   : "",
             },
+            update: (cache, { data }) => {
+              //Update the me query
+              cache.writeQuery<MeQuery>({
+                query: MeDocument,
+                data: {
+                  __typename: "Query",
+                  me: data?.changePassword.user,
+                },
+              });
+            },
           });
+
           // console.log("response", response);
 
           if (response.data?.changePassword.errors) {
@@ -78,4 +94,4 @@ const ChangePassword: NextPage<{}> = () => {
   );
 };
 
-export default ChangePassword;
+export default withApollo({ ssr: true })(ChangePassword);

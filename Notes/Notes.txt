@@ -4359,8 +4359,265 @@ Small changes to keep in mind:
     - instead of 'pause' as an option on queries for URQL, in Apollo they call it 'skip'
     - aside from the above, 99% of the code stays the same.
 
+How to update the cache with Apollo
+1) Make sure you're accessing and using all these useful variables along with our queries, especially in the context of 'load more'
+    const {
+        error: postsError,
+        data: postsData,
+        loading: loadingPosts,
+        fetchMore: fetchMorePosts,
+        variables: fetchMoreVariables,
+    } = usePostsQuery({
+        variables: {
+        limit: 15,
+        cursor: null as null | string,
+        },
+        //allow me to see when it's loading
+        notifyOnNetworkStatusChange: true,
+    });
+and we have our 'load more' button as follows:
+    <Button
+        onClick={() =>
+            fetchMorePosts({
+                variables: {
+                    limit: fetchMoreVariables?.limit,
+                    cursor:
+                        postsData.posts.posts[postsData.posts.posts.length - 1].createdAt,
+                },
+              })
+            }
+        isLoading={loadingPosts}
+        m="auto"
+        my={8}
+    >
+        Load more
+    </Button>
 
+2) Implement query updating in cache (see https://www.apollographql.com/docs/react/caching/cache-field-behavior/#the-merge-function), in our apolloClient definition.
 
+    //frontend/src/pages/_app
+    const client = new ApolloClient({
+        uri: process.env.NEXT_PUBLIC_API_URL as string,
+        credentials: "include",
+        cache: new InMemoryCache({
+            typePolicies: {
+                Query: {
+                    fields: {
+                        //our query
+                        posts: {
+                            //specify which arguments are used to filter our query
+                            keyArgs: [],
+                            merge(
+                                existing: PaginatedPosts | undefined,
+                                incoming: PaginatedPosts
+                            ): PaginatedPosts {
+                                return {
+                                    ...incoming,
+                                    posts: [...(existing?.posts || []), ...incoming.posts],
+                                };
+                            },
+                        },
+                    },
+                },
+            },
+        }),
+    });
+
+3) Set up server-side rendering with Apollo (https://github.com/adamsoffer/next-apollo)
+    1. Install to dependencies:
+        "next-apollo": "^5.0.0",
+        "graphql": "^15.3.0",
+        "@apollo/client": "^3.2.5",
+    Note: next-apollo doesn't have typescript, so we're just gonna JS that guy.
+    2. Follow the docs and create an Apollo Client.
+        a. Create frontend/src/utils/withApollo.ts
+        
+        import { ApolloClient, InMemoryCache } from "@apollo/client";
+        import { withApollo as createWithApollo } from "next-apollo";
+        import { PaginatedPosts } from "../generated/graphql";
+
+        const client = new ApolloClient({
+            uri: process.env.NEXT_PUBLIC_API_URL as string,
+            credentials: "include",
+            cache: new InMemoryCache({
+                typePolicies: {
+                    Query: {
+                        fields: {
+                            //our query
+                            posts: {
+                                //specify which arguments are used to filter our query
+                                keyArgs: [],
+                                merge(
+                                    existing: PaginatedPosts | undefined,
+                                    incoming: PaginatedPosts
+                                ): PaginatedPosts {
+                                    return {
+                                        ...incoming,
+                                        posts: [...(existing?.posts || []), ...incoming.posts],
+                                    };
+                                },
+                            },
+                        },
+                    },
+                },
+            }),
+        });
+
+        export const withApollo = createWithApollo(client);
+
+        b. Remove client and ApolloProvider from frontend/src/pages/_app
+        //frontend/src/pages/_app
+        import { CSSReset, ThemeProvider } from "@chakra-ui/core";
+        import theme from "../theme";
+
+        function MyApp({ Component, pageProps }: any) {
+            return (
+                <ThemeProvider theme={theme}>
+                    <CSSReset />
+                    <Component {...pageProps} />
+                </ThemeProvider>
+            );
+        }
+
+        export default MyApp;
+
+        c. To fix error 
+            Could not find a declaration file for module 'next-apollo'. '/Users/jq/Desktop/Learning/Fullstack_React_GraphQL_Typescript_Tutorial/Application/frontend/node_modules/next-apollo/dist/index.js' implicitly has an 'any' type.
+            Try `npm install @types/next-apollo` if it exists or add a new declaration (.d.ts) file containing `declare module 'next-apollo';
+        
+        Create frontend/all.d.ts, with following:
+                declare module "next-apollo";
+
+    3. Wrap the relevant pages with our withApollo util, and set ssr: true, like so:
+        const Index = () => {
+            ... index definition
+        }            
+
+        export default withApollo({ ssr: true })(Index);
+        For our purposes, we have the following server-side rendering:
+            - index (where all posts are loaded)
+            - post/[id] (where a single post is loaded)
+        Everything else is client-side rendered
+
+4) Set up cache updating in response to our mutations (i.e., deletePost, vote, login, etc.). Basically what we're gonna do is call an update function on whichever mutation we're calling. So for example, for our delete post button, we'll have the following:
+
+    //Post/[id]
+    <IconButton
+        icon="delete"
+        aria-label="Delete post"
+        onClick={() =>
+          deletePost({
+            variables: { id },
+            update: (cache) => cache.evict({ id: `Post:${id}` }),
+          })
+        }
+      />
+
+and for our Updoot section (the voting), we'll have the following:
+    //frontend/src/components/UpdootSection
+    const updateAfterVote = (
+        value: number,
+        postId: number,
+        cache: ApolloCache<VoteMutation>
+    ) => {
+        const data = cache.readFragment<{
+            id: number;
+            points: number;
+            voteStatus: number | null;
+        }>({
+            id: "Post:" + postId,
+            fragment: gql`
+                fragment _ on Post {
+                    id
+                    points
+                    voteStatus
+                }
+            `,
+        });
+
+        if (data) {
+            if (data.voteStatus === value) {
+                return;
+            }
+            const newPoints =
+                (data.points as number) + (!data.voteStatus ? 1 : 2) * value;
+            cache.writeFragment({
+                id: "Post:" + postId,
+                fragment: gql`
+                    fragment __ on Post {
+                    points
+                    voteStatus
+                    }
+                `,
+                data: { points: newPoints, voteStatus: value },
+            });
+        }
+    };
+
+    //... some other stuff in our UpdootSection
+
+    //Now, where we actually call the voting mutation
+    <IconButton
+        isLoading={loadingState === "updoot-loading"}
+        onClick={async () => {
+            console.log("Updoot");
+
+            setLoadingState("updoot-loading");
+            await vote({
+                variables: {
+                value: 1,
+                postId: post.id,
+                },
+                update: (cache) => updateAfterVote(1, post.id, cache),
+            });
+            setLoadingState("not-loading");
+        }}
+        variantColor={post.voteStatus === 1 ? "green" : undefined}
+        aria-label="Updoot post"
+        icon="chevron-up"
+      />
+
+In another example, create-post, we're actually going to want to evict a query itself, and force it to recompute. So on submission of our `create post` form, we have the following:
+    
+    //frontend/src/pages/create-post
+    onSubmit={async (values) => {
+            //Errors are automatically handled by errorExchange on urql client.
+            const { errors } = await createPost({
+                variables: { input: values },
+                //evict the `posts` query, force it to recompute
+                update: (cache) => cache.evict({ fieldName: "posts" }),
+            });
+            if (!errors) {
+                router.push("/");
+            }
+    }}
+
+In the onSubmit of our register form (and our login), we have the following:
+
+    onSubmit={async (values, { setErrors }) => {
+        //return promise to end spinner on resolve
+        const { data } = await register({
+            variables: { input: values },
+            update: (cache, { data }) => {
+                //Update the me query
+                cache.writeQuery<MeQuery>({
+                    query: MeDocument,
+                    data: {
+                        __typename: "Query",
+                        me: data?.register.user,
+                    },
+                });
+            },
+        });
+        if (data?.register.errors) {
+            setErrors(toErrorMap(data.register.errors));
+        } else if (data?.register.user) {
+            //Redirect the user on successful registration
+            router.push("/");
+        }
+    }}
+
+At this point, what we're missing on our site functionality is cookies working on refresh. Right now, when we refresh, our qid cookie is there, but the user isn't signed in, in spite of this.
 
 
 

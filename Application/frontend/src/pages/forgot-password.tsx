@@ -8,6 +8,7 @@ import { Wrapper } from "../components/Wrapper";
 
 import { useForgotPasswordMutation } from "../generated/graphql";
 import { useState } from "react";
+import { withApollo } from "../utils/withApollo";
 
 const ForgotPassword: React.FC<{}> = ({}) => {
   const [isComplete, setIsComplete] = useState(false);
@@ -54,4 +55,4 @@ const ForgotPassword: React.FC<{}> = ({}) => {
   );
 };
 
-export default ForgotPassword;
+export default withApollo({ ssr: false })(ForgotPassword);
