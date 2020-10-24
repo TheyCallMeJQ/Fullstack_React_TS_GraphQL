@@ -3805,8 +3805,65 @@ https://formidable.com/open-source/urql/docs/
         Notice in the above we should see both our postgres service running, as well as our redis service.
 
     7. Set up our application to be able to use the VPS, we can use Docker for this. We're gonna be starting from https://nodejs.org/en/docs/guides/nodejs-docker-webapp/#creating-a-dockerfile for this section. Note there's stuff above the section this link leads to, but our project thus far includes everything they talk about in those sections (i.e. express, package.json, etc.)
-        1. Create `Dockerfile` in backend/ root, with the following:
-            //backend/Dockerfile
+        1. Create "build" script for backend.
+            //backend/package.json
+            {
+                "name": "backend",
+                "version": "1.0.0",
+                "description": "",
+                "main": "index.js",
+                "scripts": {
+                    "start": "nodemon dist/index.js",
+                    "watch": "tsc -w",
+                    "build": "tsc",
+                    "start:services": "brew services start postgresql && brew services start redis",
+                    "stop:services": "brew services stop postgresql && brew services stop redis"
+                },
+                "keywords": [],
+                "author": "",
+                "license": "ISC",
+                "dependencies": {
+                    "apollo-server-express": "^2.18.2",
+                    "argon2": "^0.27.0",
+                    "connect-redis": "^5.0.0",
+                    "cors": "^2.8.5",
+                    "dataloader": "^2.0.0",
+                    "express": "^4.17.1",
+                    "express-session": "^1.17.1",
+                    "graphql": "^15.3.0",
+                    "ioredis": "^4.17.3",
+                    "nodemailer": "^6.4.13",
+                    "pg": "^8.4.0",
+                    "reflect-metadata": "^0.1.13",
+                    "type-graphql": "^1.0.0",
+                    "typeorm": "^0.2.28",
+                    "uuid": "^8.3.1"
+                },
+                "devDependencies": {
+                    "@types/connect-redis": "^0.0.14",
+                    "@types/cors": "^2.8.8",
+                    "@types/express": "^4.17.8",
+                    "@types/express-session": "^1.17.0",
+                    "@types/ioredis": "^4.17.5",
+                    "@types/node": "^14.11.5",
+                    "@types/nodemailer": "^6.4.0",
+                    "@types/redis": "^2.8.27",
+                    "@types/uuid": "^8.3.0",
+                    "concurrently": "^5.3.0",
+                    "nodemon": "^2.0.4",
+                    "ts-node": "^9.0.0",
+                    "typescript": "^4.0.3"
+                },
+                "mikro-orm": {
+                    "useTsNode": true,
+                    "configPaths": [
+                    "./src/mikro-orm.config.ts",
+                    "./dist/mikro-orm.config.js"
+                    ]
+                }
+            }
+
+        2. Create `Dockerfile` in backend/ root, with the following. Note that you can find more info on this over at https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md.
             FROM node:12
 
             # Create app directory
@@ -3815,28 +3872,412 @@ https://formidable.com/open-source/urql/docs/
             # Install app dependencies
             # A wildcard is used to ensure both package.json AND package-lock.json are copied
             # where available (npm@5+)
-            COPY package*.json ./
+            COPY package.json ./
+            COPY yarn.lock ./
 
-            RUN npm install
+            RUN yarn
+
             # If you are building your code for production
             # RUN npm ci --only=production
 
             # Bundle app source
             COPY . .
 
+            RUN yarn build
+
+            ENV NODE_ENV production
+
             EXPOSE 8080
-            CMD [ "node", "server.js" ]
+            CMD [ "node", "dist/index.js" ]
+            USER node
 
+        3. Create backend/.dockerignore file
+            node_modules
+            npm-debug.log
+
+        4. Make sure Docker is running on your system.
+
+        5. In `backend` directory, execute the following. Note: the [theycallmejq] is my docker username and yours should be there, too.
+            $docker build -t theycallmejq/lireddit:test .
+
+        Find the docs for the docker `build` function here: https://docs.docker.com/engine/reference/commandline/build/
+        Quickly, the -t option specifies a name for our built image, optionally with a tag, so we're naming it `jq/lireddit`, with tag `test`.
+        The '.' at the end signifies the relevant directory we want ocnverted to the disk image, which, from our backend, is the current directory, .
+
+        6. Create a `.env` file in backend root.
+            //backend/.env
+            DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lireddit
+            REDIS_URL=127.0.0.1:6379
+            PORT=4000
+            SESSION_SECRET=hbfwelmxlzwjdcdllwlancehjcndk
+            CORS_ORIGIN=http://localhost:3000
+
+            Note: with the Database URL we have the following format: 
+                postgresql://[username]:[password]@localhost:[port]/[db name]
+
+        7. Add to backend dependencies    
+            "dotenv-safe": "^8.2.0",
+        8. Test .env variables with .env.example
+            a. Create env.example in backend root
+            b. Use Ben Awad's package to take as input our .env file and generats a .d.ts file, which will give us typesafety and autocomplete for our env variables. Head on over to https://github.com/benawad/gen-env-types for more info
+            c. As per https://github.com/benawad/gen-env-types#usage, execute the following in backend root
+                $ npx gen-env-types .env -o src/env.d.ts -e .
+            Flags for the above:
+            -V, --version               Show version number
+            -h, --help                  Show usage information
+            -o, --types-output          Output name/path for types file | defaults to `env.d.ts`
+            -e, --example-env-path      Path to save .env.example file   
+            Add a new "gen-env-vars" script using the above.
+            //package.json
+            {
+                //...other things
+                "scripts": {
+                    "gen-env-vars": "npx gen-env-types .env -o src/env.d.ts -e .",
+                }
+            }
+
+            d. In backend/src/index, import 'dotenv-safe/config' and make changes to connection config:
+            //Ensure we define our environment variables, else returns MissingEnvVarsError
+            import 'dotenv-safe/config'
+            //other imports
+
+            const main = async () => {
+                const connection = await createConnection({
+                    type: "postgres",
+                    url: process.env.DATABASE_URL,
+                    logging: true,
+                    //automatically perform migrations
+                    synchronize: true,
+                    migrations: [path.join(__dirname, "./migrations/*")],
+                    entities: [User, Post, Updoot],
+                });
+                //Run any un-run migrations
+                await connection.runMigrations();
+
+                const app = express();
+
+                const RedisStore = connectRedis(session);
+                //initialize redis client
+                const redis = new Redis(process.env.REDIS_URL);
+
+                app.use(
+                    cors({
+                        origin: process.env.CORS_ORIGIN,
+                        credentials: true,
+                    })
+                );
+
+                app.use(
+                    session({
+                        name: COOKIE_NAME,
+                        store: new RedisStore({ client: redis, disableTouch: true }),
+                        cookie: {
+                            //No access to cookie from frontend
+                            httpOnly: true,
+                            //Set cookie lifespan to 10 years
+                            maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
+                            //Only work for https
+                            secure: __prod__,
+                            sameSite: "lax", //csrf
+                        },
+                        saveUninitialized: false,
+                        secret: process.env.SESSION_SECRET,
+                        resave: false,
+                    })
+                );
+
+                const apolloServer = new ApolloServer({
+                    schema: await buildSchema({
+                        resolvers: [HelloResolver, PostResolver, UserResolver],
+                        validate: false,
+                    }),
+                    context: ({ req, res }) => ({
+                        req,
+                        res,
+                        redis,
+                        userLoader: createUserLoader(),
+                        updootLoader: createUpdootLoader(),
+                    }),
+                });
+
+                apolloServer.applyMiddleware({
+                    app,
+                    cors: false,
+                });
+
+                app.listen(process.env.PORT, () => {
+                    console.log(`Server listening on port ${process.env.PORT}`);
+                });
+            };
+
+        9. Keep setting up backend for deployment
+            a. add proxy to start of app in `backend/src/index`
+                //backend/src/index
+                const app = express();
+
+                const RedisStore = connectRedis(session);
+                //initialize redis client
+                const redis = new Redis(process.env.REDIS_URL);
+                app.set("proxy", 1);
+                app.use(
+                    cors({
+                        origin: process.env.CORS_ORIGIN,
+                        credentials: true,
+                    })
+                );
+
+            b. change the connection in `backend/src/index` to have `synchronize: false` and comment out our migration which fills our db with test data.
+
+            //backend/src/index
+            const main = async () => {
+                const connection = await createConnection({
+                    type: "postgres",
+                    // database: "lireddit",
+                    // username: "postgres",
+                    // password: "postgres",
+                    url: process.env.DATABASE_URL,
+                    logging: true,
+                    //automatically perform migrations
+                    // synchronize: true,
+                    migrations: [path.join(__dirname, "./migrations/*")],
+                    entities: [User, Post, Updoot],
+                });
+                //Run any un-run migrations
+                await connection.runMigrations();
+            }
+
+            //backend/src/migrations
+            import { MigrationInterface, QueryRunner } from "typeorm";
+
+            export class FakePosts1602790818372 implements MigrationInterface {
+                public async up(_queryRunner: QueryRunner): Promise<void> {
+                    // queryRunner.query(
+                    //   `insert into post ("creatorId", "title", "text", "createdAt") values (1, 'Jumpin'' Jack Flash', 'Etiam vel augue. Vestibulum rutrum rutrum neque. Aenean auctor gravida sem.', '2020-03-31T18:05:42Z');
+                    //... other insertions
+                    // insert into post ("creatorId", "title", "text", "createdAt") values (1, 'Orphanage, The (Orfanato, El)', 'Morbi non lectus. Aliquam sit amet diam in magna bibendum imperdiet. Nullam orci pede, venenatis non, sodales sed, tincidunt eu, felis.', '2020-01-24T06:42:36Z');
+                    // `
+                    // );
+                }
+            }
+
+            c. Create a fresh db
+            $ createdb lireddit2
+
+            d. Set up an ORM config file, backend/ormconfig.json. https://github.com/typeorm/typeorm/blob/master/docs/using-ormconfig.md#using-ormconfigjson
+                //backend/ormconfig.json
+                {
+                    "type": "postgres",
+                    "host": "localhost",
+                    "port": 5432,
+                    "username": "postgres",
+                    "password": "postgres",
+                    "database": "lireddit2",
+                    "entities": ["dist/entities/*.js"],
+                    "migrations": ["dist/migrations/*.js"]
+                }
+
+            e. run migration generation command, in backend directory. Move the resulting file to backend/src/migrations
+            $ npx typeorm migration:generate -n Initial  
+
+            f. Run another docker build to save changes to our image
+            backend $ docker build -t theycallmejq/lireddit:1 .  
+
+            g. Create Docker repo via https://hub.docker.com/
+
+            h. Push to docker. 
+                1. Docker login, if haven't done before
+                    jq@JacquesippesAir backend % docker login
+                    Login with your Docker ID to push and pull images from Docker Hub. If you don't have a Docker ID, head over to https://hub.docker.com to create one.
+                    Username: theycallmejq
+                    Password: 
+                    Login Succeeded
+                2. Push    
+                    jq@JacquesippesAir backend % docker push theycallmejq/lireddit:1
+                   Again, if you don't use your username at [theycallmejq], you're gonna get a problem.
+
+            i. Use Dokku to run docker image. I absolutely recommend the following documentation, it's very clear. http://dokku.viewdocs.io/dokku/deployment/methods/images/#deploying-from-a-docker-registry.
+                1. ssh
+                    jq@JacquesippesAir backend % ssh root@142.93.8.164  
+                (If you didn't create a Dokku app earlier, you should do it now. Note that you need to install dokku plugins for postgres and redis, instructions on this are above).    
+                Note that in all the following, 'latest' is always a tag name we've chosen.
+                2. Pull our docker image
+                    docker pull theycallmejq/lireddit:1
+                3. Retag the docker image to match the created app.
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# docker tag theycallmejq/lireddit:1 dokku/api:latest
+                4. Deploy the docker image
+                    dokku tags:deploy api latest
+
+            j. Buy a custom domain, we used GoDaddy
+                By the way, create a new email each time you want to do this, they have a "first year 1$ policy," so...
+            k. After creating custom domain, go to goDaddy.com go to My Domains.
+                1. Find Manage DNS
+                2. Add a new A record, with:
+                    a. name: [same as your backend app, 'api' in our case]
+                    b. value: [digitalocean iPv4]
+            l. Set up HTTPS via Dokku-letsencrypt [12:27:47], https://github.com/dokku/dokku-letsencrypt
+                1. make sure you're ssh'd into your VPS
+                    jq@JacquesippesAir backend % ssh root@142.93.8.164
+                2. install dokku letsencrypt plugin
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# sudo dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
+                3. configure letsencrypt email
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku config:set --no-restart api DOKKU_LETSENCRYPT_EMAIL=jacques.p.amiot@gmail.com
+                    Where api is the app name
+                4. Ensure the dokku global domain is set to [app name].[custom domain name]
+                    a. root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:report
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:report
+                    =====> api domains information
+                        Domains app enabled:           true                     
+                        Domains app vhosts:            api.jacquespamiot.com    
+                        Domains global enabled:        true                     
+                        Domains global vhosts:         jacquespamiot.com 
+                    b. if you DON'T have the above, do the following:
+                    c. Remove domain with
+                        root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:remove api api.dokku-ubuntu-s-1vcpu-1gb-nyc1-01
+                    d. Verify success with domains:report, you should see the following:
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:report
+                    =====> api domains information
+                        Domains app enabled:           true                     
+                        Domains app vhosts:                
+                        Domains global enabled:        true                     
+                        Domains global vhosts:         jacquespamiot.com   
+
+                    e. Add domain with
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:add api api.jacquespamiot.com
+                    f. Verify success with domains:report
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:report
+                    =====> api domains information
+                        Domains app enabled:           true                     
+                        Domains app vhosts:            api.jacquespamiot.com    
+                        Domains global enabled:        true                     
+                        Domains global vhosts:         dokku-ubuntu-s-1vcpu-1gb-nyc1-01
+
+                    g. Remove global with
+                        root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:remove-global dokku-ubuntu-s-1vcpu-1gb-nyc1-01
+                    
+                    h. Verify success with domains:report
+                    =====> api domains information
+                        Domains app enabled:           true                     
+                        Domains app vhosts:            api.dokku-ubuntu-s-1vcpu-1gb-nyc1-01
+                        Domains global enabled:        true                     
+                        Domains global vhosts:         
+
+                    i. Add global with 
+                        root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:add-global jacquespamiot.com
+
+                    j. Verify success with domains:report
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku domains:report
+                    =====> api domains information
+                        Domains app enabled:           true                     
+                        Domains app vhosts:            api.jacquespamiot.com    
+                        Domains global enabled:        true                     
+                        Domains global vhosts:         jacquespamiot.com
+
+                5. Configure ports for dokku api
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku proxy:ports-add api http:80:8080
+
+                6. run letsencrypt for dokku app
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku letsencrypt api
+
+                7. You should now be able to hit https://api.jacquespamiot.com/
+            At this point the backend has been successfully deployed!
+
+??#. Deploy frontend
+    
+    1. For the remainder of this, MAKE SURE YOU HAVE YOUR FRONTEND SERVER RUNNING LOCALLY.
+    2. Define and swap out env vars
+    Fun fact, NextJS adds all .env.local file variables to process.env. Create frontend/.env.local with the following:
+        NEXT_PUBLIC_API_URL=http://localhost:4000/graphql
+    Note: NEXT_PUBLIC is important, as without it your .env.local variables won't be accessible to the browser.
+
+    3. Before messing with vercel, run a `yarn build` on the frontend to make sure our build works, where e have "build" script:
+        "build": "next build",
+
+    4. Global npm vercel install
+        `npm i -g vercel@latest`
+    5. If you haven't already, create a vercel account
+    6. jq@JacquesippesAir frontend % vercel login
+    7. jq@JacquesippesAir frontend % vercel
+        Vercel CLI 20.1.2
+        ? Set up and deploy “~/Desktop/Learning/Fullstack_React_GraphQL_Typescript_Tutorial/Application/frontend”? [Y/n] y
+        ? Which scope do you want to deploy to? Jacques Amiot
+        ? Found project “theycallmejq/frontend”. Link to it? [Y/n] n
+        ? Link to different existing project? [Y/n] n
+        ? What’s your project’s name? lireddit
+        ? In which directory is your code located? ./
+        Auto-detected Project Settings (Next.js):
+        - Build Command: `npm run build` or `next build`
+        - Output Directory: Next.js default
+        - Development Command: next dev --port $PORT
+        ? Want to override the settings? [y/N] n
+        🔗  Linked to theycallmejq/lireddit (created .vercel)
+        🔍  Inspect: https://vercel.com/theycallmejq/lireddit/ikrntbpte [2s]
+        ✅  Production: https://lireddit-five-eta.vercel.app [copied to clipboard] [54s]
+        📝  Deployed to production. Run `vercel --prod` to overwrite later (https://vercel.link/2F).
+        💡  To change the domain or build command, go to https://vercel.com/theycallmejq/lireddit/settings
+    8. Navigate to the vercel project settings on the vercel web GUI to do some config
+    Go to `Inspect` link, provided above > lireddit > Settings
+        a. Set up env vars; add the following env var
+            Name: NEXT_PUBLIC_API_URL
+            Value: https://api.jacquespamiot.com/graphql
+        
+            1. Redeploy Vercel with (it needs to implement our env vars):
+                jq@JacquesippesAir frontend % vercel
+
+            2. Deploy Vercel to `prod` to bypass the Preview stage, which is neither dev nor production (env vars behave differently in preview than in prod).    
+                jq@JacquesippesAir frontend % vercel --prod
+
+            3. Verify successful implementation of env vars by checking devTools console on the `Production` link returned by the last command. We should now be getting a CORS error, which is an improvement.
+
+        b. Add a new domain to our vercel project settings on the web dashboard.
+            1. Delete any A record type which is not the api record we set up earlier, in our custom domain DNS management. Your only A record type, then, should be the one leading to the API.
             
+            2. In Vercel project settings, add a custom domain. Feed it in your custom domain (don't forget dot com) and it'll tell you to create a new A record with name "@" pointing to 76.76.21.21 on your custom domain to continue.
+            
+            3. Add a new A record with name "@" pointing to 76.76.21.21 on the custom domain DNS management.
+
+            4. (Optional) Add a new A record with name "www" pointing to 76.76.21.21 on the custom domain DNS management.
+            
+            5. In Vercel project settings, refresh, and the new domain should be valid.
+
+            6. Change our CORS settings.
+                a. In `.env.production` on our frontend project root, have the following, be sure to update the CORS_ORIGIN to our custom domain.
+                    SESSION_SECRET=fuckmKLMXUSNXLEExendemdpojx
+                    CORS_ORIGIN=https://jacquespamiot.com
+
+            7. Rebuild docker image and resend it our server (notice our tag change here, to differentiate it from last builds)
+                a.
+                    docker build -t theycallmejq/lireddit:1.0.1 .
+
+                    docker push theycallmejq/lireddit:1.0.1
+
+                b. ssh into VPS and docker pull our last docker push
+                    jq@JacquesippesAir backend % ssh root@142.93.8.164 
+                    
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# docker pull theycallmejq/lireddit:1.0.1
+
+                c. Tag the new pull
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# docker tag theycallmejq/lireddit:1.0.1 dokku/api:latest
+
+                d. Deploy latest (Still in VPS)
+                    root@dokku-ubuntu-s-1vcpu-1gb-nyc1-01:~# dokku tags:deploy api latest
+
+We can write a shell script to make deployment easier, deploy.sh.
+    #!/bin/bash
+
+    echo What should this build and deploy be versioned as \(i.e. 1.0.1, 1.2\)?
+    read VERSION
+
+    docker build -t theycallmejq/lireddit:$VERSION .
+    docker push theycallmejq/lireddit:$VERSION
+
+    #The things in quotes are commands to be run on the server
+    ssh root@142.93.8.164 "docker pull theycallmejq/lireddit:$VERSION && docker tag theycallmejq/lireddit:$VERSION dokku/api:$VERSION && dokku deploy api $VERSION"
+
+Don't forget to run 
+    chmod +x deploy.sh
+to make our shell script executable. And execute the script by just calling it in terminal.    
 
 
-
-
-
-
-
-
-2. Set up Dokku on our VPS
 
 We're gonna be using Dokku, which is like a self-hosted heroku. Why Dokku? Good price for good quality.
 

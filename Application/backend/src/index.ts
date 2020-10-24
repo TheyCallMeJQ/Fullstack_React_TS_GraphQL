@@ -1,4 +1,6 @@
 import "reflect-metadata";
+//ensure we define our environment variables
+import "dotenv-safe/config";
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
@@ -26,36 +28,24 @@ import { createUpdootLoader } from "./utils/createUpdootLoader";
 const main = async () => {
   const connection = await createConnection({
     type: "postgres",
-    database: "lireddit",
-    username: "postgres",
-    password: "postgres",
+    url: process.env.DATABASE_URL,
     logging: true,
-    //automatically perform migrations
-    synchronize: true,
     migrations: [path.join(__dirname, "./migrations/*")],
     entities: [User, Post, Updoot],
   });
   //Run any un-run migrations
   await connection.runMigrations();
 
-  //Clear the db
-  // await Post.delete({});
-
-  // const posts = await Post.find();
-  // console.log("Posts", posts);
-  // const users = await User.find();
-  // console.log("Users", users);
-
-  const PORT = 4000;
   const app = express();
 
   const RedisStore = connectRedis(session);
   //initialize redis client
-  const redis = new Redis();
-
+  const redis = new Redis(process.env.REDIS_URL);
+  //Ensure cookies work properly
+  app.set("trust proxy", 1);
   app.use(
     cors({
-      origin: "http://localhost:3000",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     })
   );
@@ -72,9 +62,11 @@ const main = async () => {
         //Only work for https
         secure: __prod__,
         sameSite: "lax", //csrf
+        //We specify a domain to avoid a bug with cookies on deployment
+        domain: __prod__ ? ".jacquespamiot.com" : undefined,
       },
       saveUninitialized: false,
-      secret: "hbfwelmxlzwjdcdllw",
+      secret: process.env.SESSION_SECRET,
       resave: false,
     })
   );
@@ -98,8 +90,8 @@ const main = async () => {
     cors: false,
   });
 
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
+  app.listen(process.env.PORT, () => {
+    console.log(`Server listening on port ${process.env.PORT}`);
   });
 };
 

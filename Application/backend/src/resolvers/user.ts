@@ -61,7 +61,7 @@ export class UserResolver {
     const key = FORGET_PASSWORD_PREFIX + token;
     await redis.set(key, user.id, "ex", 1000 * 60 * 60 * 24 * 3); //expire in three days
 
-    const htmlText = `<a href="http://localhost:3000/change-password/${token}">Change password</a>`;
+    const htmlText = `<a href="${process.env.CORS_ORIGIN}/change-password/${token}">Change password</a>`;
     await sendEmail(email, htmlText);
 
     return true;
